@@ -95,7 +95,7 @@
 
 ### 3.3 คัดลอกโค้ด
 
-1. เปิดไฟล์ `main.cpp` ในโปรเจกต์นี้
+1. เปิดไฟล์ [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob/main/main.cpp) ในโปรเจกต์นี้
 2. เลือกทั้งหมด (กด `Ctrl + A`)
 3. คัดลอก (กด `Ctrl + C`)
 4. กลับไปที่ Arduino IDE
@@ -180,7 +180,7 @@ Automatic Greenhouse System Started
 
 ### ค่าที่สามารถปรับได้
 
-เปิดไฟล์ `main.cpp` แล้วหาบรรทัดต่อไปนี้:
+เปิดไฟล์ [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob/main/main.cpp) แล้วหาบรรทัดต่อไปนี้:
 
 ```cpp
 #define MOISTURE_DRY_THRESHOLD    700   // ค่าขีดจำกัดดินแห้ง
