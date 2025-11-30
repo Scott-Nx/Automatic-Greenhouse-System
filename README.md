@@ -1,80 +1,82 @@
-# คู่มือการเริ่มต้นใช้งานระบบโรงเรือนอัตโนมัติ
+# Automatic Greenhouse System Getting Started Guide
 
-## สิ่งที่ต้องเตรียม
+🌐 **[ภาษาไทย (Thai Version)](README.th.md)**
 
-### อุปกรณ์ฮาร์ดแวร์
+## Prerequisites
 
-1. **Arduino Uno** (1 บอร์ด)
-2. **Sensor วัดความชื้นในดิน** (Soil Moisture Sensor) (1 ตัว)
-3. **Relay 4-Channel** แบบ Active-Low (1 โมดูล)
-4. **ปั๊มน้ำ DC** พร้อมท่อน้ำ (1 ตัว)
-5. **พัดลม DC** (1 ตัว)
-6. **สายไฟจัมเปอร์** (หลายเส้น)
-7. **สาย USB Type-B** สำหรับต่อ Arduino กับคอมพิวเตอร์
-8. **แหล่งจ่ายไฟ** สำหรับปั๊มน้ำและพัดลม
+### Hardware Components
 
-### ซอฟต์แวร์ที่ต้องติดตั้ง
+1. **Arduino Uno** (1 board)
+2. **Soil Moisture Sensor** (1 unit)
+3. **4-Channel Relay** Active-Low type (1 module)
+4. **DC Water Pump** with water tubing (1 unit)
+5. **DC Fan** (1 unit)
+6. **Jumper Wires** (multiple)
+7. **USB Type-B Cable** for connecting Arduino to computer
+8. **Power Supply** for water pump and fan
 
-- **Arduino IDE** (โปรแกรมสำหรับเขียนและอัปโหลดโค้ด)
+### Software Requirements
+
+- **Arduino IDE** (for writing and uploading code)
 
 ---
 
-## 🔌 ขั้นตอนที่ 1: ต่อสายวงจร
+## 🔌 Step 1: Wiring the Circuit
 
-### 1.1 ต่อ Sensor วัดความชื้นในดิน
+### 1.1 Connect the Soil Moisture Sensor
 
-| ขา Sensor | ต่อกับ Arduino |
-| --------- | -------------- |
-| VCC       | 5V             |
-| GND       | GND            |
-| AO        | A0             |
-| DO        | ไม่ต้องต่อ     |
+| Sensor Pin | Connect to Arduino |
+| ---------- | ------------------ |
+| VCC        | 5V                 |
+| GND        | GND                |
+| AO         | A0                 |
+| DO         | Not connected      |
 
-### 1.2 ต่อ Relay 4-Channel
+### 1.2 Connect the 4-Channel Relay
 
-| ขา Relay | ต่อกับ Arduino |
-| -------- | -------------- |
-| VCC      | 5V             |
-| GND      | GND            |
-| IN1      | D2 (ปั๊มน้ำ)   |
-| IN2      | D3 (พัดลม)     |
-| IN3      | D4 (สำรอง)     |
-| IN4      | D5 (สำรอง)     |
+| Relay Pin | Connect to Arduino |
+| --------- | ------------------ |
+| VCC       | 5V                 |
+| GND       | GND                |
+| IN1       | D2 (Water Pump)    |
+| IN2       | D3 (Fan)           |
+| IN3       | D4 (Reserved)      |
+| IN4       | D5 (Reserved)      |
 
-### 1.3 ต่อปั๊มน้ำและพัดลม
+### 1.3 Connect the Water Pump and Fan
 
-- **ปั๊มน้ำ**: ต่อเข้า Relay ช่อง 1 (IN1)
-- **พัดลม**: ต่อเข้า Relay ช่อง 2 (IN2)
+- **Water Pump**: Connect to Relay channel 1 (IN1)
+- **Fan**: Connect to Relay channel 2 (IN2)
 
 > [!WARNING]
-> ระวังเรื่องขั้วไฟ และควรใช้แหล่งจ่ายไฟแยกสำหรับปั๊มน้ำและพัดลม
+> Be careful about polarity, and use a separate power supply for the water pump and fan.
 
 ---
 
-## 💻 ขั้นตอนที่ 2: ติดตั้ง Arduino IDE
+## 💻 Step 2: Install Arduino IDE
 
-### สำหรับ Windows
+### For Windows
 
-1. ไปที่เว็บไซต์ https://www.arduino.cc/en/software
-2. คลิก **"Windows Win 10 and newer, 64 bits"**
-3. คลิก **"Just Download"** (ไม่ต้องบริจาคก็ได้)
-4. เปิดไฟล์ที่ดาวน์โหลดมา แล้วทำตามขั้นตอนการติดตั้ง
-5. คลิก **"I Agree"** > **"Next"** > **"Install"**
-6. รอจนติดตั้งเสร็จ แล้วคลิก **"Close"**
+1. Go to https://www.arduino.cc/en/software
+2. Click **"Windows Win 10 and newer, 64 bits"**
+3. Click **"Just Download"** (donation is optional)
+4. Open the downloaded file and follow the installation steps
+5. Click **"I Agree"** > **"Next"** > **"Install"**
+6. Wait for installation to complete, then click **"Close"**
 
-### สำหรับ macOS
+### For macOS
 
-1. ไปที่เว็บไซต์ https://www.arduino.cc/en/software
-2. คลิก **"macOS"**
-3. คลิก **"Just Download"**
-4. เปิดไฟล์ .dmg ที่ดาวน์โหลดมา
-5. ลาก Arduino IDE ไปใส่โฟลเดอร์ Applications
+1. Go to https://www.arduino.cc/en/software
+2. Click **"macOS"**
+3. Click **"Just Download"**
+4. Open the downloaded .dmg file
+5. Drag Arduino IDE to the Applications folder
 
-### สำหรับ Linux
+### For Linux
 
-1. ไปที่เว็บไซต์ https://www.arduino.cc/en/software
-2. คลิก **"Linux AppImage 64 bits"**
-3. เปิด Terminal แล้วพิมพ์:
+1. Go to https://www.arduino.cc/en/software
+2. Click **"Linux AppImage 64 bits"**
+3. Open Terminal and type:
    ```
    chmod +x arduino-ide_*_Linux_64bit.AppImage
    ./arduino-ide_*_Linux_64bit.AppImage
@@ -82,86 +84,86 @@
 
 ---
 
-## 📝 ขั้นตอนที่ 3: เปิดโค้ดใน Arduino IDE
+## 📝 Step 3: Open the Code in Arduino IDE
 
-### 3.1 เปิดโปรแกรม Arduino IDE
+### 3.1 Open Arduino IDE
 
-ดับเบิลคลิกที่ไอคอน Arduino IDE บนเดสก์ท็อปหรือในเมนูโปรแกรม
+Double-click the Arduino IDE icon on the desktop or in the program menu.
 
-### 3.2 สร้างไฟล์ใหม่
+### 3.2 Create a New File
 
-1. คลิก **File** > **New Sketch** (หรือกด `Ctrl + N`)
-2. จะมีหน้าต่างใหม่เปิดขึ้นมา
+1. Click **File** > **New Sketch** (or press `Ctrl + N`)
+2. A new window will open
 
-### 3.3 คัดลอกโค้ด
+### 3.3 Copy the Code
 
-1. เปิดไฟล์ [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob/main/main.cpp) ในโปรเจกต์นี้
-2. เลือกทั้งหมด (กด `Ctrl + A`)
-3. คัดลอก (กด `Ctrl + C`)
-4. กลับไปที่ Arduino IDE
-5. ลบโค้ดเดิมทั้งหมด แล้ววาง (กด `Ctrl + V`)
+1. Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob/main/main.cpp) file in this project
+2. Select all (press `Ctrl + A`)
+3. Copy (press `Ctrl + C`)
+4. Go back to Arduino IDE
+5. Delete all existing code, then paste (press `Ctrl + V`)
 
-### 3.4 บันทึกไฟล์
+### 3.4 Save the File
 
-1. คลิก **File** > **Save** (หรือกด `Ctrl + S`)
-2. ตั้งชื่อว่า **"GreenhouseSystem"**
-3. เลือกที่เก็บไฟล์ แล้วคลิก **Save**
+1. Click **File** > **Save** (or press `Ctrl + S`)
+2. Name it **"GreenhouseSystem"**
+3. Choose the save location and click **Save**
 
 ---
 
-## ขั้นตอนที่ 4: เชื่อมต่อ Arduino กับคอมพิวเตอร์
+## Step 4: Connect Arduino to Computer
 
-### 4.1 เสียบสาย USB
+### 4.1 Plug in the USB Cable
 
-ใช้สาย USB Type-B เชื่อมต่อ Arduino Uno กับคอมพิวเตอร์
+Use a USB Type-B cable to connect the Arduino Uno to your computer.
 
-### 4.2 เลือกบอร์ด
+### 4.2 Select the Board
 
-1. คลิก **Tools** > **Board** > **Arduino AVR Boards** > **Arduino Uno**
+1. Click **Tools** > **Board** > **Arduino AVR Boards** > **Arduino Uno**
 
-### 4.3 เลือก Port
+### 4.3 Select the Port
 
-1. คลิก **Tools** > **Port**
-2. เลือก Port ที่มีคำว่า **"Arduino Uno"** ต่อท้าย
-   - Windows: จะเป็น `COM3`, `COM4`, หรือ `COM` อื่นๆ
-   - macOS: จะเป็น `/dev/cu.usbmodem...`
-   - Linux: จะเป็น `/dev/ttyACM0` หรือ `/dev/ttyUSB0`
+1. Click **Tools** > **Port**
+2. Select the Port with **"Arduino Uno"** appended
+   - Windows: Will be `COM3`, `COM4`, or other `COM` ports
+   - macOS: Will be `/dev/cu.usbmodem...`
+   - Linux: Will be `/dev/ttyACM0` or `/dev/ttyUSB0`
 
 > [!TIP]
-> **ถ้าไม่เห็น Port**: ลองถอดสาย USB แล้วเสียบใหม่ หรือลองเปลี่ยนช่อง USB
+> **If you don't see the Port**: Try unplugging and replugging the USB cable, or try a different USB port.
 
 ---
 
-## ขั้นตอนที่ 5: อัปโหลดโค้ดไปยัง Arduino
+## Step 5: Upload the Code to Arduino
 
-### 5.1 ตรวจสอบโค้ด (Verify)
+### 5.1 Verify the Code
 
-1. คลิกปุ่ม **✓ (เครื่องหมายถูก)** ที่มุมซ้ายบน หรือกด `Ctrl + R`
-2. รอจนแสดงข้อความ **"Done compiling."** ที่ด้านล่าง
-3. ถ้ามีข้อผิดพลาด จะแสดงเป็นตัวอักษรสีส้ม/แดง
+1. Click the **✓ (checkmark)** button in the top left corner, or press `Ctrl + R`
+2. Wait until **"Done compiling."** appears at the bottom
+3. If there are errors, they will be displayed in orange/red text
 
-### 5.2 อัปโหลดโค้ด (Upload)
+### 5.2 Upload the Code
 
-1. คลิกปุ่ม **→ (ลูกศร)** ที่อยู่ถัดจากปุ่ม Verify หรือกด `Ctrl + U`
-2. รอจนแสดงข้อความ **"Done uploading."**
-3. ไฟ LED บน Arduino จะกะพริบระหว่างอัปโหลด
+1. Click the **→ (arrow)** button next to the Verify button, or press `Ctrl + U`
+2. Wait until **"Done uploading."** appears
+3. The LED on the Arduino will blink during upload
 
 ---
 
-## ขั้นตอนที่ 6: ดูผลการทำงาน (Serial Monitor)
+## Step 6: View the Output (Serial Monitor)
 
-### 6.1 เปิด Serial Monitor
+### 6.1 Open Serial Monitor
 
-1. คลิก **Tools** > **Serial Monitor** หรือกด `Ctrl + Shift + M`
-2. หน้าต่างใหม่จะเปิดขึ้นมา
+1. Click **Tools** > **Serial Monitor** or press `Ctrl + Shift + M`
+2. A new window will open
 
-### 6.2 ตั้งค่า Baud Rate
+### 6.2 Set the Baud Rate
 
-ที่มุมขวาล่างของ Serial Monitor ให้เลือก **"9600 baud"**
+In the bottom right corner of the Serial Monitor, select **"9600 baud"**
 
-### 6.3 อ่านค่า
+### 6.3 Read the Values
 
-จะเห็นข้อความแสดงค่าความชื้นและสถานะของระบบ เช่น:
+You will see messages displaying moisture values and system status, such as:
 
 ```
 =====================================
@@ -176,76 +178,76 @@ Automatic Greenhouse System Started
 
 ---
 
-## ขั้นตอนที่ 7: ปรับแต่งค่า (ถ้าต้องการ)
+## Step 7: Customize Values (Optional)
 
-### ค่าที่สามารถปรับได้
+### Configurable Values
 
-เปิดไฟล์ [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob/main/main.cpp) แล้วหาบรรทัดต่อไปนี้:
+Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob/main/main.cpp) file and find the following lines:
 
 ```cpp
-#define MOISTURE_DRY_THRESHOLD    700   // ค่าขีดจำกัดดินแห้ง
-#define MOISTURE_WET_THRESHOLD    300   // ค่าขีดจำกัดดินชื้นเกินไป
-#define PUMP_RUN_TIME             5000  // เวลาเปิดปั๊มน้ำ (มิลลิวินาที)
-#define FAN_RUN_TIME              10000 // เวลาเปิดพัดลม (มิลลิวินาที)
+#define MOISTURE_DRY_THRESHOLD    700   // Dry soil threshold
+#define MOISTURE_WET_THRESHOLD    300   // Wet soil threshold
+#define PUMP_RUN_TIME             5000  // Water pump runtime (milliseconds)
+#define FAN_RUN_TIME              10000 // Fan runtime (milliseconds)
 ```
 
-### วิธีปรับค่า
+### How to Adjust Values
 
-| ค่า                      | ความหมาย                  | คำแนะนำ                                  |
-| ------------------------ | ------------------------- | ---------------------------------------- |
-| `MOISTURE_DRY_THRESHOLD` | ค่าที่ถือว่าดินแห้ง       | ยิ่งเพิ่มค่า = ดินต้องแห้งมากถึงจะรดน้ำ  |
-| `MOISTURE_WET_THRESHOLD` | ค่าที่ถือว่าดินชื้นเกินไป | ยิ่งลดค่า = ดินต้องชื้นมากถึงจะเปิดพัดลม |
-| `PUMP_RUN_TIME`          | เวลาเปิดปั๊มน้ำ           | 5000 = 5 วินาที                          |
-| `FAN_RUN_TIME`           | เวลาเปิดพัดลม             | 10000 = 10 วินาที                        |
+| Value                    | Meaning                          | Recommendation                                        |
+| ------------------------ | -------------------------------- | ----------------------------------------------------- |
+| `MOISTURE_DRY_THRESHOLD` | Value considered as dry soil     | Higher value = soil must be drier to trigger watering |
+| `MOISTURE_WET_THRESHOLD` | Value considered as too wet soil | Lower value = soil must be wetter to trigger fan      |
+| `PUMP_RUN_TIME`          | Water pump runtime               | 5000 = 5 seconds                                      |
+| `FAN_RUN_TIME`           | Fan runtime                      | 10000 = 10 seconds                                    |
 
-### วิธีหาค่าที่เหมาะสม
+### How to Find Optimal Values
 
-1. เปิด Serial Monitor ดูค่าความชื้น
-2. ทดสอบจุ่ม Sensor ในดินแห้ง จดค่าไว้
-3. ทดสอบจุ่ม Sensor ในดินชื้น จดค่าไว้
-4. ปรับค่า `THRESHOLD` ตามที่ต้องการ
+1. Open Serial Monitor to view moisture values
+2. Test by inserting the Sensor in dry soil, note the value
+3. Test by inserting the Sensor in wet soil, note the value
+4. Adjust the `THRESHOLD` values as needed
 
 ---
 
-## การแก้ปัญหาเบื้องต้น
+## Troubleshooting
 
-### ปัญหา: อัปโหลดไม่ได้
+### Problem: Cannot Upload
 
-**อาการ**: แสดงข้อความ "avrdude: stk500_recv(): programmer is not responding"
+**Symptom**: Shows message "avrdude: stk500_recv(): programmer is not responding"
 
-**วิธีแก้**:
+**Solution**:
 
-1. ตรวจสอบว่าเลือก Board เป็น "Arduino Uno"
-2. ตรวจสอบว่าเลือก Port ถูกต้อง
-3. ถอดสาย USB แล้วเสียบใหม่
-4. ลองเปลี่ยนสาย USB
+1. Check that Board is set to "Arduino Uno"
+2. Check that Port is correctly selected
+3. Unplug and replug the USB cable
+4. Try a different USB cable
 
-### ปัญหา: ค่าความชื้นไม่เปลี่ยน
+### Problem: Moisture Value Not Changing
 
-**อาการ**: ค่าแสดงเป็น 0 หรือ 1023 ตลอด
+**Symptom**: Value always shows 0 or 1023
 
-**วิธีแก้**:
+**Solution**:
 
-1. ตรวจสอบการต่อสายของ Sensor
-2. ตรวจสอบว่า VCC ต่อกับ 5V, GND ต่อกับ GND
-3. ตรวจสอบว่าสาย AO ต่อกับ A0
+1. Check the Sensor wiring
+2. Verify VCC is connected to 5V, GND is connected to GND
+3. Verify AO wire is connected to A0
 
-### ปัญหา: Relay ไม่ทำงาน
+### Problem: Relay Not Working
 
-**อาการ**: ไม่ได้ยินเสียงคลิกจาก Relay
+**Symptom**: No clicking sound from Relay
 
-**วิธีแก้**:
+**Solution**:
 
-1. ตรวจสอบการต่อสาย VCC และ GND ของ Relay
-2. ตรวจสอบว่าสาย IN1-IN4 ต่อถูกขา
-3. ตรวจสอบว่า Relay ได้รับไฟเพียงพอ
+1. Check VCC and GND wiring of the Relay
+2. Verify IN1-IN4 wires are connected to correct pins
+3. Check that Relay is receiving adequate power
 
-### ปัญหา: ปั๊มน้ำ/พัดลม ไม่ทำงาน
+### Problem: Water Pump/Fan Not Working
 
-**อาการ**: Relay คลิก แต่ปั๊มน้ำ/พัดลมไม่หมุน
+**Symptom**: Relay clicks but water pump/fan doesn't spin
 
-**วิธีแก้**:
+**Solution**:
 
-1. ตรวจสอบการต่อสายปั๊มน้ำ/พัดลมกับ Relay
-2. ตรวจสอบแหล่งจ่ายไฟของปั๊มน้ำ/พัดลม
-3. ลองทดสอบปั๊มน้ำ/พัดลมโดยตรงกับแหล่งจ่ายไฟ
+1. Check the water pump/fan wiring to Relay
+2. Check the power supply for water pump/fan
+3. Test the water pump/fan directly with the power supply
