@@ -12,6 +12,7 @@
 // =============================================
 
 // Sensor วัดความชื้นในดิน
+#include <Arduino.h>
 #define SOIL_MOISTURE_PIN A0  // ขา Analog สำหรับอ่านค่าความชื้น
 
 // Relay 4-Channel (Active-Low: LOW = เปิด, HIGH = ปิด)
