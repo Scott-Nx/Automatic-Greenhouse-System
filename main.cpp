@@ -1,7 +1,7 @@
 /*
  * ระบบโรงเรือนอัตโนมัติ (Automatic Greenhouse System)
  * สำหรับบอร์ด Arduino Uno
- * 
+ *
  * ระบบควบคุมความชื้นในดินอัตโนมัติ:
  * - เมื่อความชื้นต่ำ: เปิดปั๊มน้ำเพื่อรดน้ำ
  * - เมื่อความชื้นสูง: เปิดพัดลมเพื่อดูดความชื้นออก
@@ -64,48 +64,48 @@ void setup() {
   Serial.println(F("ระบบโรงเรือนอัตโนมัติ เริ่มทำงาน"));
   Serial.println(F("Automatic Greenhouse System Started"));
   Serial.println(F("====================================="));
-  
+
   // ตั้งค่าขา Relay เป็น Output
   pinMode(RELAY_PUMP_PIN, OUTPUT);
   pinMode(RELAY_FAN_PIN, OUTPUT);
   pinMode(RELAY_3_PIN, OUTPUT);
   pinMode(RELAY_4_PIN, OUTPUT);
-  
+
   // ปิด Relay ทั้งหมดตอนเริ่มต้น (Active-Low: HIGH = ปิด)
   digitalWrite(RELAY_PUMP_PIN, RELAY_OFF);
   digitalWrite(RELAY_FAN_PIN, RELAY_OFF);
   digitalWrite(RELAY_3_PIN, RELAY_OFF);
   digitalWrite(RELAY_4_PIN, RELAY_OFF);
-  
+
   // ตั้งค่าขา Sensor เป็น Input
   pinMode(SOIL_MOISTURE_PIN, INPUT);
-  
+
   Serial.println(F("เริ่มต้นระบบสำเร็จ!"));
   Serial.println();
 }
 
 void loop() {
   unsigned long currentTime = millis();
-  
+
   // อ่านค่า Sensor ตามช่วงเวลาที่กำหนด
   if (currentTime - lastReadTime >= READ_INTERVAL) {
     lastReadTime = currentTime;
-    
+
     // อ่านค่าความชื้นจาก Sensor
     currentMoisture = readSoilMoisture();
-    
+
     // แสดงค่าบน Serial Monitor
     printMoistureStatus(currentMoisture);
-    
+
     // ตรวจสอบและควบคุมระบบ
     controlSystem(currentMoisture);
   }
-  
+
   // ตรวจสอบการหยุดทำงานของปั๊มน้ำ
   if (isPumpRunning && (currentTime - pumpStartTime >= PUMP_RUN_TIME)) {
     stopPump();
   }
-  
+
   // ตรวจสอบการหยุดทำงานของพัดลม
   if (isFanRunning && (currentTime - fanStartTime >= FAN_RUN_TIME)) {
     stopFan();
@@ -120,12 +120,12 @@ int readSoilMoisture() {
   // อ่านค่าหลายครั้งแล้วหาค่าเฉลี่ย เพื่อลด Noise
   int sum = 0;
   const int samples = 10;
-  
+
   for (int i = 0; i < samples; i++) {
     sum += analogRead(SOIL_MOISTURE_PIN);
     delay(10);
   }
-  
+
   return sum / samples;
 }
 
@@ -138,7 +138,7 @@ void controlSystem(int moisture) {
   if (moisture >= MOISTURE_DRY_THRESHOLD && !isPumpRunning && !isFanRunning) {
     startPump();
   }
-  
+
   // กรณีดินชื้นเกินไป (ค่าต่ำ) - เปิดพัดลม
   if (moisture <= MOISTURE_WET_THRESHOLD && !isFanRunning && !isPumpRunning) {
     startFan();
@@ -187,7 +187,7 @@ void printMoistureStatus(int moisture) {
   Serial.print(F("ค่าความชื้น (Moisture): "));
   Serial.print(moisture);
   Serial.print(F(" | สถานะ: "));
-  
+
   if (moisture >= MOISTURE_DRY_THRESHOLD) {
     Serial.println(F("ดินแห้ง (DRY)"));
   } else if (moisture <= MOISTURE_WET_THRESHOLD) {
@@ -195,7 +195,7 @@ void printMoistureStatus(int moisture) {
   } else {
     Serial.println(F("ปกติ (NORMAL)"));
   }
-  
+
   // แสดงสถานะอุปกรณ์
   Serial.print(F("  ปั๊มน้ำ: "));
   Serial.print(isPumpRunning ? F("ทำงาน") : F("ปิด"));
