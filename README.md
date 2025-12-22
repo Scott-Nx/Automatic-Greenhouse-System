@@ -34,14 +34,14 @@
 
 ### 1.2 Connect the 4-Channel Relay (12V)
 
-| Relay Pin | Connect to Arduino |
-| --------- | ------------------ |
-| VCC       | 12V                |
-| GND       | GND                |
-| IN1       | D2 (Water Pump)    |
-| IN2       | D3 (Fan)           |
-| IN3       | D4 (Reserved)      |
-| IN4       | D5 (Reserved)      |
+| Relay Pin | Connect         |
+| --------- | --------------- |
+| VCC       | 12V             |
+| GND       | GND             |
+| IN1       | D2 (Water Pump) |
+| IN2       | D3 (Fan)        |
+| IN3       | D4 (Reserved)   |
+| IN4       | D5 (Reserved)   |
 
 ### 1.3 Connect the Water Pump and Fan
 
