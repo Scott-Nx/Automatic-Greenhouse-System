@@ -30,11 +30,11 @@
 | AO        | A0             |
 | DO        | ไม่ต้องต่อ     |
 
-### 1.2 ต่อ Relay 4-Channel
+### 1.2 ต่อ Relay 4-Channel (12V)
 
 | ขา Relay | ต่อกับ Arduino |
 | -------- | -------------- |
-| VCC      | 5V             |
+| VCC      | 12V            |
 | GND      | GND            |
 | IN1      | D2 (ปั๊มน้ำ)   |
 | IN2      | D3 (พัดลม)     |

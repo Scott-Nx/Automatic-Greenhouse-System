@@ -32,11 +32,11 @@
 | AO         | A0                 |
 | DO         | Not connected      |
 
-### 1.2 Connect the 4-Channel Relay
+### 1.2 Connect the 4-Channel Relay (12V)
 
 | Relay Pin | Connect to Arduino |
 | --------- | ------------------ |
-| VCC       | 5V                 |
+| VCC       | 12V                |
 | GND       | GND                |
 | IN1       | D2 (Water Pump)    |
 | IN2       | D3 (Fan)           |
