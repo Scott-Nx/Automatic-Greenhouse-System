@@ -7,17 +7,18 @@
  * - เมื่อความชื้นสูง: เปิดพัดลมเพื่อดูดความชื้นออก
  */
 
+#include <Arduino.h>
+
 // =============================================
 // การกำหนดขา (Pin Definitions)
 // =============================================
 
 // Sensor วัดความชื้นในดิน
-#include <Arduino.h>
 #define SOIL_MOISTURE_PIN A0  // ขา Analog สำหรับอ่านค่าความชื้น
 
 // Relay 4-Channel (Active-Low: LOW = เปิด, HIGH = ปิด)
 #define RELAY_PUMP_PIN    2   // IN1 - ควบคุมปั๊มน้ำ
-#define RELAY_FAN_PIN     3   // IN2 - ควบคุมพัดลม (รอต่อใช้งาน)
+#define RELAY_FAN_PIN     3   // IN2 - ควบคุมพัดลม
 #define RELAY_3_PIN       4   // IN3 - รอต่อใช้งาน
 #define RELAY_4_PIN       5   // IN4 - รอต่อใช้งาน
 
@@ -127,7 +128,23 @@ int readSoilMoisture() {
     delay(10);
   }
 
-  return sum / samples;
+  int avgMoisture = sum / samples;
+
+  // ตรวจสอบความถูกต้องของค่า Sensor
+  // ค่าที่อ่านได้ควรอยู่ในช่วง 0-1023
+  if (avgMoisture < 0 || avgMoisture > 1023) {
+    Serial.println(F("เตือน: ค่า Sensor ผิดปกติ!"));
+    return currentMoisture; // ใช้ค่าเก่าแทน
+  }
+
+  // เตือนถ้าค่า Sensor ติดที่ขอบ (อาจบ่งชี้ว่า Sensor มีปัญหา)
+  if (avgMoisture <= 10) {
+    Serial.println(F("เตือน: Sensor อาจชื้นเกินไปหรือขาดการเชื่อมต่อ"));
+  } else if (avgMoisture >= 1013) {
+    Serial.println(F("เตือน: Sensor อาจแห้งเกินไปหรือขาดการเชื่อมต่อ"));
+  }
+
+  return avgMoisture;
 }
 
 // =============================================
@@ -136,13 +153,25 @@ int readSoilMoisture() {
 
 void controlSystem(int moisture) {
   // กรณีดินแห้ง (ค่าสูง) - เปิดปั๊มน้ำ
+  // ใช้ Hysteresis เพื่อป้องกันการสั่นสะเทือน
   if (moisture >= MOISTURE_DRY_THRESHOLD && !isPumpRunning && !isFanRunning) {
     startPump();
   }
+  // ปิดปั๊มเมื่อความชื้นดีขึ้นเกินกว่า threshold - hysteresis
+  else if (isPumpRunning && moisture < (MOISTURE_DRY_THRESHOLD - HYSTERESIS)) {
+    stopPump();
+    Serial.println(F(">>> ปิดปั๊มน้ำ (ความชื้นดีขึ้นแล้ว)"));
+  }
 
   // กรณีดินชื้นเกินไป (ค่าต่ำ) - เปิดพัดลม
+  // ใช้ Hysteresis เพื่อป้องกันการสั่นสะเทือน
   if (moisture <= MOISTURE_WET_THRESHOLD && !isFanRunning && !isPumpRunning) {
     startFan();
+  }
+  // ปิดพัดลมเมื่อความชื้นลดลงเกินกว่า threshold + hysteresis
+  else if (isFanRunning && moisture > (MOISTURE_WET_THRESHOLD + HYSTERESIS)) {
+    stopFan();
+    Serial.println(F(">>> ปิดพัดลม (ความชื้นลดลงแล้ว)"));
   }
 }
 
