@@ -45,8 +45,8 @@
 
 ### 1.3 Connect the Water Pump and Fan
 
-- **Water Pump**: Connect to Relay channel 1 (IN1)
-- **Fan**: Connect to Relay channel 2 (IN2)
+- **Water Pump**: Connect to Relay channel 3 (IN3)
+- **Fan**: Connect to Relay channel 4 (IN4)
 
 > [!WARNING]
 > Be careful about polarity, and use a separate power supply for the water pump and fan.

@@ -17,10 +17,10 @@
 #define SOIL_MOISTURE_PIN A0  // ขา Analog สำหรับอ่านค่าความชื้น
 
 // Relay 4-Channel (Active-Low: LOW = เปิด, HIGH = ปิด)
-#define RELAY_PUMP_PIN    2   // IN1 - ควบคุมปั๊มน้ำ
-#define RELAY_FAN_PIN     3   // IN2 - ควบคุมพัดลม
-#define RELAY_3_PIN       4   // IN3 - รอต่อใช้งาน
-#define RELAY_4_PIN       5   // IN4 - รอต่อใช้งาน
+#define RELAY_1_PIN       2   // IN1 - รอต่อใช้งาน
+#define RELAY_2_PIN       3   // IN2 - รอต่อใช้งาน
+#define RELAY_PUMP_PIN    4   // IN3 - ควบคุมปั๊มน้ำ
+#define RELAY_FAN_PIN     5   // IN4 - ควบคุมพัดลม
 
 // =============================================
 // ค่าคงที่สำหรับการตั้งค่า (Configuration Constants)
@@ -68,16 +68,16 @@ void setup() {
   Serial.println(F("====================================="));
 
   // ตั้งค่าขา Relay เป็น Output
+  pinMode(RELAY_1_PIN, OUTPUT);
+  pinMode(RELAY_2_PIN, OUTPUT);
   pinMode(RELAY_PUMP_PIN, OUTPUT);
   pinMode(RELAY_FAN_PIN, OUTPUT);
-  pinMode(RELAY_3_PIN, OUTPUT);
-  pinMode(RELAY_4_PIN, OUTPUT);
 
   // ปิด Relay ทั้งหมดตอนเริ่มต้น (Active-Low: HIGH = ปิด)
+  digitalWrite(RELAY_1_PIN, RELAY_OFF);
+  digitalWrite(RELAY_2_PIN, RELAY_OFF);
   digitalWrite(RELAY_PUMP_PIN, RELAY_OFF);
   digitalWrite(RELAY_FAN_PIN, RELAY_OFF);
-  digitalWrite(RELAY_3_PIN, RELAY_OFF);
-  digitalWrite(RELAY_4_PIN, RELAY_OFF);
 
   // ตั้งค่าขา Sensor เป็น Input
   pinMode(SOIL_MOISTURE_PIN, INPUT);
@@ -235,21 +235,21 @@ void printMoistureStatus(int moisture) {
 }
 
 // =============================================
-// ฟังก์ชันสำรองสำหรับ Relay 3 และ 4 (Reserved Functions)
+// ฟังก์ชันสำรองสำหรับ Relay 1 และ 2 (Reserved Functions)
 // =============================================
 
-void activateRelay3() {
-  digitalWrite(RELAY_3_PIN, RELAY_ON);
+void activateRelay1() {
+  digitalWrite(RELAY_1_PIN, RELAY_ON);
 }
 
-void deactivateRelay3() {
-  digitalWrite(RELAY_3_PIN, RELAY_OFF);
+void deactivateRelay1() {
+  digitalWrite(RELAY_1_PIN, RELAY_OFF);
 }
 
-void activateRelay4() {
-  digitalWrite(RELAY_4_PIN, RELAY_ON);
+void activateRelay2() {
+  digitalWrite(RELAY_2_PIN, RELAY_ON);
 }
 
-void deactivateRelay4() {
-  digitalWrite(RELAY_4_PIN, RELAY_OFF);
+void deactivateRelay2() {
+  digitalWrite(RELAY_2_PIN, RELAY_OFF);
 }
