@@ -3,6 +3,7 @@
  * สำหรับบอร์ด Arduino Uno
  *
  * ระบบควบคุมความชื้นในดินอัตโนมัติ:
+ * - เมื่อความชื้นปกติ: โหมด IDLE (พักระบบ)
  * - เมื่อความชื้นต่ำ: เปิดปั๊มน้ำเพื่อรดน้ำ
  * - เมื่อความชื้นสูง: เปิดพัดลมเพื่อดูดความชื้นออก
  */
@@ -14,13 +15,13 @@
 // =============================================
 
 // Sensor วัดความชื้นในดิน
-#define SOIL_MOISTURE_PIN A0  // ขา Analog สำหรับอ่านค่าความชื้น
+constexpr uint8_t SOIL_MOISTURE_PIN = A0;  // ขา Analog สำหรับอ่านค่าความชื้น
 
 // Relay 4-Channel (Active-Low: LOW = เปิด, HIGH = ปิด)
-#define RELAY_1_PIN       2   // IN1 - รอต่อใช้งาน
-#define RELAY_2_PIN       3   // IN2 - รอต่อใช้งาน
-#define RELAY_PUMP_PIN    4   // IN3 - ควบคุมปั๊มน้ำ
-#define RELAY_FAN_PIN     5   // IN4 - ควบคุมพัดลม
+constexpr uint8_t RELAY_1_PIN    = 2;   // IN1 - รอต่อใช้งาน
+constexpr uint8_t RELAY_2_PIN    = 3;   // IN2 - รอต่อใช้งาน
+constexpr uint8_t RELAY_PUMP_PIN = 4;   // IN3 - ควบคุมปั๊มน้ำ
+constexpr uint8_t RELAY_FAN_PIN  = 5;   // IN4 - ควบคุมพัดลม
 
 // =============================================
 // ค่าคงที่สำหรับการตั้งค่า (Configuration Constants)
@@ -28,32 +29,82 @@
 
 // ค่าความชื้น (0-1023 จาก Analog Read)
 // หมายเหตุ: ค่าต่ำ = ความชื้นสูง, ค่าสูง = ความชื้นต่ำ (สำหรับ Sensor ส่วนใหญ่)
-#define MOISTURE_DRY_THRESHOLD    700   // ค่าขีดจำกัดดินแห้ง (ต้องรดน้ำ)
-#define MOISTURE_WET_THRESHOLD    300   // ค่าขีดจำกัดดินชื้นเกินไป (ต้องเปิดพัดลม)
+constexpr int MOISTURE_DRY_THRESHOLD = 700;   // ค่าขีดจำกัดดินแห้ง (ต้องรดน้ำ)
+constexpr int MOISTURE_WET_THRESHOLD = 300;   // ค่าขีดจำกัดดินชื้นเกินไป (ต้องเปิดพัดลม)
 
 // ค่า Hysteresis เพื่อป้องกันการสั่นสะเทือนของระบบ
-#define HYSTERESIS                50
+constexpr int HYSTERESIS = 50;
 
 // ระยะเวลาในการทำงาน (มิลลิวินาที)
-#define PUMP_RUN_TIME             5000  // เวลาเปิดปั๊มน้ำ 5 วินาที
-#define FAN_RUN_TIME              10000 // เวลาเปิดพัดลม 10 วินาที
-#define READ_INTERVAL             2000  // อ่านค่า Sensor ทุก 2 วินาที
+constexpr unsigned long PUMP_RUN_TIME     = 5000UL;   // เวลาเปิดปั๊มน้ำ 5 วินาที
+constexpr unsigned long FAN_RUN_TIME      = 10000UL;  // เวลาเปิดพัดลม 10 วินาที
+constexpr unsigned long READ_INTERVAL     = 2000UL;   // อ่านค่า Sensor ทุก 2 วินาที
+constexpr unsigned long IDLE_READ_INTERVAL = 5000UL; // อ่านค่า Sensor ทุก 5 วินาทีในโหมด IDLE
+constexpr unsigned long COOLDOWN_TIME     = 30000UL;  // พักระบบ 30 วินาทีหลังทำงาน
+
+// ค่าสำหรับการอ่าน Sensor
+constexpr int SENSOR_SAMPLES     = 10;   // จำนวนครั้งในการอ่านค่าเฉลี่ย
+constexpr int SENSOR_MIN_VALID   = 0;    // ค่าต่ำสุดที่ถูกต้อง
+constexpr int SENSOR_MAX_VALID   = 1023; // ค่าสูงสุดที่ถูกต้อง
+constexpr int SENSOR_EDGE_LOW    = 10;   // ค่าขอบล่าง (อาจมีปัญหา)
+constexpr int SENSOR_EDGE_HIGH   = 1013; // ค่าขอบบน (อาจมีปัญหา)
 
 // สถานะ Relay (Active-Low)
-#define RELAY_ON                  LOW
-#define RELAY_OFF                 HIGH
+constexpr uint8_t RELAY_ON  = LOW;
+constexpr uint8_t RELAY_OFF = HIGH;
+
+// =============================================
+// Enum สำหรับสถานะระบบ (System State Enum)
+// =============================================
+
+enum class SystemState : uint8_t {
+  IDLE,       // โหมดพัก - ความชื้นปกติ
+  WATERING,   // กำลังรดน้ำ
+  VENTILATING,// กำลังระบายความชื้น
+  COOLDOWN    // พักหลังทำงาน
+};
 
 // =============================================
 // ตัวแปรสถานะ (State Variables)
 // =============================================
+
+SystemState currentState = SystemState::IDLE;
+SystemState previousState = SystemState::IDLE;
+
 unsigned long lastReadTime = 0;
-unsigned long pumpStartTime = 0;
-unsigned long fanStartTime = 0;
+unsigned long stateStartTime = 0;
+unsigned long lastStateChangeTime = 0;
 
-bool isPumpRunning = false;
-bool isFanRunning = false;
+int currentMoisture = 512;  // ค่าเริ่มต้นกลางๆ
+int previousMoisture = 512;
 
-int currentMoisture = 0;
+bool sensorError = false;
+
+// =============================================
+// Forward Declarations (ประกาศฟังก์ชันล่วงหน้า)
+// =============================================
+
+void initializePins();
+void initializeRelays();
+int readSoilMoisture();
+bool validateSensorReading(int reading);
+void updateSystemState(int moisture);
+void executeState();
+void transitionTo(SystemState newState);
+void startPump();
+void stopPump();
+void startFan();
+void stopFan();
+void stopAllDevices();
+void printSystemStatus(int moisture);
+void printStateTransition(SystemState from, SystemState to);
+const __FlashStringHelper* getStateName(SystemState state);
+const __FlashStringHelper* getMoistureStatus(int moisture);
+unsigned long getElapsedTime(unsigned long startTime);
+void activateRelay1();
+void deactivateRelay1();
+void activateRelay2();
+void deactivateRelay2();
 
 // =============================================
 // ฟังก์ชันหลัก (Main Functions)
@@ -62,56 +113,88 @@ int currentMoisture = 0;
 void setup() {
   // เริ่มต้น Serial Monitor สำหรับ Debug
   Serial.begin(9600);
-  Serial.println(F("====================================="));
-  Serial.println(F("ระบบโรงเรือนอัตโนมัติ เริ่มทำงาน"));
-  Serial.println(F("Automatic Greenhouse System Started"));
-  Serial.println(F("====================================="));
 
+  // รอให้ Serial พร้อม (สำหรับบอร์ดบางรุ่น)
+  while (!Serial && millis() < 3000) {
+    ; // รอไม่เกิน 3 วินาที
+  }
+
+  Serial.println(F(""));
+  Serial.println(F("====================================="));
+  Serial.println(F("  Automatic Greenhouse System v2.0"));
+  Serial.println(F("  ระบบโรงเรือนอัตโนมัติ"));
+  Serial.println(F("====================================="));
+  Serial.println(F(""));
+
+  // เริ่มต้นระบบ
+  initializePins();
+  initializeRelays();
+
+  // ตั้งค่าเริ่มต้น
+  currentState = SystemState::IDLE;
+  stateStartTime = millis();
+  lastStateChangeTime = millis();
+  lastReadTime = 0;  // ให้อ่านค่าทันทีในรอบแรก
+
+  Serial.println(F("[SYSTEM] เริ่มต้นระบบสำเร็จ!"));
+  Serial.println(F("[STATE] เข้าสู่โหมด IDLE"));
+  Serial.println(F(""));
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+
+  // กำหนดช่วงเวลาอ่านค่าตามสถานะ
+  unsigned long readInterval = (currentState == SystemState::IDLE) ? IDLE_READ_INTERVAL : READ_INTERVAL;
+
+  // อ่านค่า Sensor ตามช่วงเวลาที่กำหนด
+  if (currentTime - lastReadTime >= readInterval) {
+    lastReadTime = currentTime;
+
+    // บันทึกค่าเก่า
+    previousMoisture = currentMoisture;
+
+    // อ่านค่าความชื้นจาก Sensor
+    currentMoisture = readSoilMoisture();
+
+    // แสดงสถานะระบบ
+    printSystemStatus(currentMoisture);
+
+    // อัพเดทสถานะระบบ (ถ้าไม่มีข้อผิดพลาด)
+    if (!sensorError) {
+      updateSystemState(currentMoisture);
+    }
+  }
+
+  // ดำเนินการตามสถานะปัจจุบัน
+  executeState();
+}
+
+// =============================================
+// ฟังก์ชันเริ่มต้นระบบ (Initialization Functions)
+// =============================================
+
+void initializePins() {
   // ตั้งค่าขา Relay เป็น Output
   pinMode(RELAY_1_PIN, OUTPUT);
   pinMode(RELAY_2_PIN, OUTPUT);
   pinMode(RELAY_PUMP_PIN, OUTPUT);
   pinMode(RELAY_FAN_PIN, OUTPUT);
 
+  // ตั้งค่าขา Sensor เป็น Input (ไม่จำเป็นสำหรับ Analog แต่ชัดเจนดี)
+  pinMode(SOIL_MOISTURE_PIN, INPUT);
+
+  Serial.println(F("[INIT] กำหนดขาสำเร็จ"));
+}
+
+void initializeRelays() {
   // ปิด Relay ทั้งหมดตอนเริ่มต้น (Active-Low: HIGH = ปิด)
   digitalWrite(RELAY_1_PIN, RELAY_OFF);
   digitalWrite(RELAY_2_PIN, RELAY_OFF);
   digitalWrite(RELAY_PUMP_PIN, RELAY_OFF);
   digitalWrite(RELAY_FAN_PIN, RELAY_OFF);
 
-  // ตั้งค่าขา Sensor เป็น Input
-  pinMode(SOIL_MOISTURE_PIN, INPUT);
-
-  Serial.println(F("เริ่มต้นระบบสำเร็จ!"));
-  Serial.println();
-}
-
-void loop() {
-  unsigned long currentTime = millis();
-
-  // อ่านค่า Sensor ตามช่วงเวลาที่กำหนด
-  if (currentTime - lastReadTime >= READ_INTERVAL) {
-    lastReadTime = currentTime;
-
-    // อ่านค่าความชื้นจาก Sensor
-    currentMoisture = readSoilMoisture();
-
-    // แสดงค่าบน Serial Monitor
-    printMoistureStatus(currentMoisture);
-
-    // ตรวจสอบและควบคุมระบบ
-    controlSystem(currentMoisture);
-  }
-
-  // ตรวจสอบการหยุดทำงานของปั๊มน้ำ
-  if (isPumpRunning && (currentTime - pumpStartTime >= PUMP_RUN_TIME)) {
-    stopPump();
-  }
-
-  // ตรวจสอบการหยุดทำงานของพัดลม
-  if (isFanRunning && (currentTime - fanStartTime >= FAN_RUN_TIME)) {
-    stopFan();
-  }
+  Serial.println(F("[INIT] ปิด Relay ทั้งหมด"));
 }
 
 // =============================================
@@ -120,58 +203,148 @@ void loop() {
 
 int readSoilMoisture() {
   // อ่านค่าหลายครั้งแล้วหาค่าเฉลี่ย เพื่อลด Noise
-  int sum = 0;
-  const int samples = 10;
+  long sum = 0;  // ใช้ long เพื่อป้องกัน overflow
 
-  for (int i = 0; i < samples; i++) {
+  for (int i = 0; i < SENSOR_SAMPLES; i++) {
     sum += analogRead(SOIL_MOISTURE_PIN);
-    delay(10);
+    delay(5);  // ลดเวลา delay ลง
   }
 
-  int avgMoisture = sum / samples;
+  int avgMoisture = (int)(sum / SENSOR_SAMPLES);
 
   // ตรวจสอบความถูกต้องของค่า Sensor
-  // ค่าที่อ่านได้ควรอยู่ในช่วง 0-1023
-  if (avgMoisture < 0 || avgMoisture > 1023) {
-    Serial.println(F("เตือน: ค่า Sensor ผิดปกติ!"));
+  if (!validateSensorReading(avgMoisture)) {
+    sensorError = true;
     return currentMoisture; // ใช้ค่าเก่าแทน
   }
 
-  // เตือนถ้าค่า Sensor ติดที่ขอบ (อาจบ่งชี้ว่า Sensor มีปัญหา)
-  if (avgMoisture <= 10) {
-    Serial.println(F("เตือน: Sensor อาจชื้นเกินไปหรือขาดการเชื่อมต่อ"));
-  } else if (avgMoisture >= 1013) {
-    Serial.println(F("เตือน: Sensor อาจแห้งเกินไปหรือขาดการเชื่อมต่อ"));
-  }
-
+  sensorError = false;
   return avgMoisture;
 }
 
-// =============================================
-// ฟังก์ชันควบคุมระบบ (Control Functions)
-// =============================================
-
-void controlSystem(int moisture) {
-  // กรณีดินแห้ง (ค่าสูง) - เปิดปั๊มน้ำ
-  // ใช้ Hysteresis เพื่อป้องกันการสั่นสะเทือน
-  if (moisture >= MOISTURE_DRY_THRESHOLD && !isPumpRunning && !isFanRunning) {
-    startPump();
-  }
-  // ปิดปั๊มเมื่อความชื้นดีขึ้นเกินกว่า threshold - hysteresis
-  else if (isPumpRunning && moisture < (MOISTURE_DRY_THRESHOLD - HYSTERESIS)) {
-    stopPump();
-    Serial.println(F(">>> ปิดปั๊มน้ำ (ความชื้นดีขึ้นแล้ว)"));
+bool validateSensorReading(int reading) {
+  // ค่าต้องอยู่ในช่วงที่ถูกต้อง
+  if (reading < SENSOR_MIN_VALID || reading > SENSOR_MAX_VALID) {
+    Serial.println(F("[ERROR] ค่า Sensor ผิดปกติ!"));
+    return false;
   }
 
-  // กรณีดินชื้นเกินไป (ค่าต่ำ) - เปิดพัดลม
-  // ใช้ Hysteresis เพื่อป้องกันการสั่นสะเทือน
-  if (moisture <= MOISTURE_WET_THRESHOLD && !isFanRunning && !isPumpRunning) {
-    startFan();
+  // เตือนถ้าค่า Sensor ติดที่ขอบ (อาจบ่งชี้ว่า Sensor มีปัญหา)
+  if (reading <= SENSOR_EDGE_LOW) {
+    Serial.println(F("[WARN] Sensor อาจชื้นเกินไปหรือขาดการเชื่อมต่อ"));
+  } else if (reading >= SENSOR_EDGE_HIGH) {
+    Serial.println(F("[WARN] Sensor อาจแห้งเกินไปหรือขาดการเชื่อมต่อ"));
   }
-  // ปิดพัดลมเมื่อความชื้นลดลงเกินกว่า threshold + hysteresis
-  else if (isFanRunning && moisture > (MOISTURE_WET_THRESHOLD + HYSTERESIS)) {
-    stopFan();
-    Serial.println(F(">>> ปิดพัดลม (ความชื้นลดลงแล้ว)"));
+
+  return true;
+}
+
+// =============================================
+// ฟังก์ชัน State Machine (State Management)
+// =============================================
+
+void updateSystemState(int moisture) {
+  switch (currentState) {
+    case SystemState::IDLE:
+      // ตรวจสอบว่าต้องเปลี่ยนสถานะหรือไม่
+      if (moisture >= MOISTURE_DRY_THRESHOLD) {
+        transitionTo(SystemState::WATERING);
+      } else if (moisture <= MOISTURE_WET_THRESHOLD) {
+        transitionTo(SystemState::VENTILATING);
+      }
+      // ถ้าความชื้นปกติ ก็อยู่ใน IDLE ต่อ
+      break;
+
+    case SystemState::WATERING:
+      // ตรวจสอบว่าความชื้นดีขึ้นหรือยัง (ใช้ Hysteresis)
+      if (moisture < (MOISTURE_DRY_THRESHOLD - HYSTERESIS)) {
+        transitionTo(SystemState::COOLDOWN);
+      }
+      break;
+
+    case SystemState::VENTILATING:
+      // ตรวจสอบว่าความชื้นลดลงหรือยัง (ใช้ Hysteresis)
+      if (moisture > (MOISTURE_WET_THRESHOLD + HYSTERESIS)) {
+        transitionTo(SystemState::COOLDOWN);
+      }
+      break;
+
+    case SystemState::COOLDOWN:
+      // จะถูกจัดการใน executeState()
+      break;
+  }
+}
+
+void executeState() {
+  unsigned long elapsed = getElapsedTime(stateStartTime);
+
+  switch (currentState) {
+    case SystemState::IDLE:
+      // ไม่ต้องทำอะไร - ระบบพักอยู่
+      break;
+
+    case SystemState::WATERING:
+      // ตรวจสอบเวลาทำงานของปั๊ม
+      if (elapsed >= PUMP_RUN_TIME) {
+        Serial.println(F("[PUMP] หยุดปั๊ม (ครบเวลา)"));
+        transitionTo(SystemState::COOLDOWN);
+      }
+      break;
+
+    case SystemState::VENTILATING:
+      // ตรวจสอบเวลาทำงานของพัดลม
+      if (elapsed >= FAN_RUN_TIME) {
+        Serial.println(F("[FAN] หยุดพัดลม (ครบเวลา)"));
+        transitionTo(SystemState::COOLDOWN);
+      }
+      break;
+
+    case SystemState::COOLDOWN:
+      // ตรวจสอบว่าพักครบเวลาหรือยัง
+      if (elapsed >= COOLDOWN_TIME) {
+        Serial.println(F("[COOLDOWN] พักครบเวลา"));
+        transitionTo(SystemState::IDLE);
+      }
+      break;
+  }
+}
+
+void transitionTo(SystemState newState) {
+  if (currentState == newState) {
+    return; // ไม่มีการเปลี่ยนแปลง
+  }
+
+  // บันทึกสถานะเก่า
+  previousState = currentState;
+
+  // หยุดอุปกรณ์เดิมก่อน
+  stopAllDevices();
+
+  // แสดงการเปลี่ยนสถานะ
+  printStateTransition(currentState, newState);
+
+  // เปลี่ยนสถานะ
+  currentState = newState;
+  stateStartTime = millis();
+  lastStateChangeTime = millis();
+
+  // เริ่มทำงานตามสถานะใหม่
+  switch (newState) {
+    case SystemState::IDLE:
+      Serial.println(F("[STATE] ระบบเข้าสู่โหมดพัก"));
+      break;
+
+    case SystemState::WATERING:
+      startPump();
+      break;
+
+    case SystemState::VENTILATING:
+      startFan();
+      break;
+
+    case SystemState::COOLDOWN:
+      Serial.println(F("[STATE] เข้าสู่ช่วงพักระบบ"));
+      break;
   }
 }
 
@@ -180,16 +353,13 @@ void controlSystem(int moisture) {
 // =============================================
 
 void startPump() {
-  Serial.println(F(">>> เปิดปั๊มน้ำ - กำลังรดน้ำ..."));
+  Serial.println(F(""));
+  Serial.println(F(">>> [PUMP] เปิดปั๊มน้ำ - กำลังรดน้ำ..."));
   digitalWrite(RELAY_PUMP_PIN, RELAY_ON);
-  isPumpRunning = true;
-  pumpStartTime = millis();
 }
 
 void stopPump() {
-  Serial.println(F(">>> ปิดปั๊มน้ำ"));
   digitalWrite(RELAY_PUMP_PIN, RELAY_OFF);
-  isPumpRunning = false;
 }
 
 // =============================================
@@ -197,41 +367,102 @@ void stopPump() {
 // =============================================
 
 void startFan() {
-  Serial.println(F(">>> เปิดพัดลม - กำลังดูดความชื้น..."));
+  Serial.println(F(""));
+  Serial.println(F(">>> [FAN] เปิดพัดลม - กำลังระบายความชื้น..."));
   digitalWrite(RELAY_FAN_PIN, RELAY_ON);
-  isFanRunning = true;
-  fanStartTime = millis();
 }
 
 void stopFan() {
-  Serial.println(F(">>> ปิดพัดลม"));
   digitalWrite(RELAY_FAN_PIN, RELAY_OFF);
-  isFanRunning = false;
+}
+
+// =============================================
+// ฟังก์ชันหยุดอุปกรณ์ทั้งหมด (Stop All Devices)
+// =============================================
+
+void stopAllDevices() {
+  stopPump();
+  stopFan();
 }
 
 // =============================================
 // ฟังก์ชันแสดงผล (Display Functions)
 // =============================================
 
-void printMoistureStatus(int moisture) {
-  Serial.print(F("ค่าความชื้น (Moisture): "));
-  Serial.print(moisture);
-  Serial.print(F(" | สถานะ: "));
+void printSystemStatus(int moisture) {
+  Serial.println(F("-------------------------------------"));
 
-  if (moisture >= MOISTURE_DRY_THRESHOLD) {
-    Serial.println(F("ดินแห้ง (DRY)"));
-  } else if (moisture <= MOISTURE_WET_THRESHOLD) {
-    Serial.println(F("ดินชื้นมาก (TOO WET)"));
-  } else {
-    Serial.println(F("ปกติ (NORMAL)"));
-  }
+  // แสดงค่าความชื้น
+  Serial.print(F("Moisture: "));
+  Serial.print(moisture);
+  Serial.print(F(" | Status: "));
+  Serial.println(getMoistureStatus(moisture));
+
+  // แสดงสถานะระบบ
+  Serial.print(F("System State: "));
+  Serial.print(getStateName(currentState));
+
+  // แสดงเวลาในสถานะปัจจุบัน
+  unsigned long elapsed = getElapsedTime(stateStartTime);
+  Serial.print(F(" ("));
+  Serial.print(elapsed / 1000);
+  Serial.println(F("s)"));
 
   // แสดงสถานะอุปกรณ์
-  Serial.print(F("  ปั๊มน้ำ: "));
-  Serial.print(isPumpRunning ? F("ทำงาน") : F("ปิด"));
-  Serial.print(F(" | พัดลม: "));
-  Serial.println(isFanRunning ? F("ทำงาน") : F("ปิด"));
-  Serial.println();
+  Serial.print(F("Pump: "));
+  Serial.print(currentState == SystemState::WATERING ? F("ON") : F("OFF"));
+  Serial.print(F(" | Fan: "));
+  Serial.println(currentState == SystemState::VENTILATING ? F("ON") : F("OFF"));
+
+  if (sensorError) {
+    Serial.println(F("!!! SENSOR ERROR - Using previous value !!!"));
+  }
+
+  Serial.println(F("-------------------------------------"));
+  Serial.println(F(""));
+}
+
+void printStateTransition(SystemState from, SystemState to) {
+  Serial.println(F(""));
+  Serial.print(F("==> STATE CHANGE: "));
+  Serial.print(getStateName(from));
+  Serial.print(F(" -> "));
+  Serial.println(getStateName(to));
+}
+
+const __FlashStringHelper* getStateName(SystemState state) {
+  switch (state) {
+    case SystemState::IDLE:        return F("IDLE");
+    case SystemState::WATERING:    return F("WATERING");
+    case SystemState::VENTILATING: return F("VENTILATING");
+    case SystemState::COOLDOWN:    return F("COOLDOWN");
+    default:                       return F("UNKNOWN");
+  }
+}
+
+const __FlashStringHelper* getMoistureStatus(int moisture) {
+  if (moisture >= MOISTURE_DRY_THRESHOLD) {
+    return F("DRY (ดินแห้ง)");
+  } else if (moisture <= MOISTURE_WET_THRESHOLD) {
+    return F("TOO WET (ชื้นเกินไป)");
+  } else {
+    return F("NORMAL (ปกติ)");
+  }
+}
+
+// =============================================
+// ฟังก์ชันช่วยเหลือ (Utility Functions)
+// =============================================
+
+unsigned long getElapsedTime(unsigned long startTime) {
+  unsigned long currentTime = millis();
+  // จัดการ overflow ของ millis() (ประมาณ 49 วัน)
+  if (currentTime >= startTime) {
+    return currentTime - startTime;
+  } else {
+    // กรณี overflow
+    return (0xFFFFFFFFUL - startTime) + currentTime + 1;
+  }
 }
 
 // =============================================
@@ -240,16 +471,20 @@ void printMoistureStatus(int moisture) {
 
 void activateRelay1() {
   digitalWrite(RELAY_1_PIN, RELAY_ON);
+  Serial.println(F("[RELAY1] Activated"));
 }
 
 void deactivateRelay1() {
   digitalWrite(RELAY_1_PIN, RELAY_OFF);
+  Serial.println(F("[RELAY1] Deactivated"));
 }
 
 void activateRelay2() {
   digitalWrite(RELAY_2_PIN, RELAY_ON);
+  Serial.println(F("[RELAY2] Activated"));
 }
 
 void deactivateRelay2() {
   digitalWrite(RELAY_2_PIN, RELAY_OFF);
+  Serial.println(F("[RELAY2] Deactivated"));
 }
