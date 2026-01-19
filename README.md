@@ -23,7 +23,7 @@
 
 ---
 
-## 🔌 Step 1: Wiring the Circuit
+## Step 1: Wiring the Circuit
 
 ### 1.1 Connect the Soil Moisture Sensor
 
@@ -69,7 +69,7 @@
 
 ---
 
-## 💻 Step 2: Install Arduino IDE
+## Step 2: Install Arduino IDE
 
 ### For Windows
 
