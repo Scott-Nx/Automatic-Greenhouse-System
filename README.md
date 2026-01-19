@@ -34,14 +34,15 @@
 
 ### 1.2 Connect the 4-Channel Relay (12V)
 
-| Relay Pin (Input) | Connect                         | Info                                |
-| ----------------- | ------------------------------- | ----------------------------------- |
-| VCC               | Battery 12V (+)                 | Use positive from external power    |
-| GND               | Battery 12V (-) and Arduino GND | **Common Ground must be connected** |
-| IN1               | Arduino D2                      | Water Pump                          |
-| IN2               | Arduino D3                      | Fan                                 |
-| IN3               | Arduino D4                      | (Reserved)                          |
-| IN4               | Arduino D5                      | (Reserved)                          |
+| Relay Pin (Input) | Connect         | Info                                           |
+| ----------------- | --------------- | ---------------------------------------------- |
+| VCC               | Arduino 5V (+)  | Use positive from Arduino power                |
+| JD-VCC            | Battery 12V (+) | **Do not connect +12V to Arduino**             |
+| GND               | Battery 12V (-) | **Arduino GND must be connect only to sensor** |
+| IN1               | Arduino D2      | (Reserved)                                     |
+| IN2               | Arduino D3      | (Reserved)                                     |
+| IN3               | Arduino D4      | Water Pump                                     |
+| IN4               | Arduino D5      | Fan                                            |
 
 ### 1.3 Connect the Water Pump and Fan
 
