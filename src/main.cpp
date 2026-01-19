@@ -6,9 +6,14 @@
  * - เมื่อความชื้นปกติ: โหมด IDLE (พักระบบ)
  * - เมื่อความชื้นต่ำ: เปิดปั๊มน้ำเพื่อรดน้ำ
  * - เมื่อความชื้นสูง: เปิดพัดลมเพื่อดูดความชื้นออก
+ *
+ * อุปกรณ์แสดงผล:
+ * - LCD Display 16x2 (I2C) สำหรับแสดงสถานะระบบ
  */
 
 #include <Arduino.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
 // =============================================
 // การกำหนดขา (Pin Definitions)
@@ -23,6 +28,12 @@ constexpr uint8_t RELAY_2_PIN    = 3;   // IN2 - รอต่อใช้งา�
 constexpr uint8_t RELAY_PUMP_PIN = 4;   // IN3 - ควบคุมปั๊มน้ำ
 constexpr uint8_t RELAY_FAN_PIN  = 5;   // IN4 - ควบคุมพัดลม
 
+// LCD I2C Configuration
+// หมายเหตุ: ที่อยู่ I2C ทั่วไปคือ 0x27 หรือ 0x3F (ตรวจสอบด้วย I2C Scanner ถ้าไม่แน่ใจ)
+constexpr uint8_t LCD_I2C_ADDRESS = 0x27;  // ที่อยู่ I2C ของ LCD
+constexpr uint8_t LCD_COLUMNS     = 16;    // จำนวนคอลัมน์ของ LCD
+constexpr uint8_t LCD_ROWS        = 2;     // จำนวนแถวของ LCD
+
 // =============================================
 // ค่าคงที่สำหรับการตั้งค่า (Configuration Constants)
 // =============================================
@@ -36,11 +47,12 @@ constexpr int MOISTURE_WET_THRESHOLD = 300;   // ค่าขีดจำกั�
 constexpr int HYSTERESIS = 50;
 
 // ระยะเวลาในการทำงาน (มิลลิวินาที)
-constexpr unsigned long PUMP_RUN_TIME     = 5000UL;   // เวลาเปิดปั๊มน้ำ 5 วินาที
-constexpr unsigned long FAN_RUN_TIME      = 10000UL;  // เวลาเปิดพัดลม 10 วินาที
-constexpr unsigned long READ_INTERVAL     = 2000UL;   // อ่านค่า Sensor ทุก 2 วินาที
-constexpr unsigned long IDLE_READ_INTERVAL = 5000UL; // อ่านค่า Sensor ทุก 5 วินาทีในโหมด IDLE
-constexpr unsigned long COOLDOWN_TIME     = 30000UL;  // พักระบบ 30 วินาทีหลังทำงาน
+constexpr unsigned long PUMP_RUN_TIME      = 5000UL;   // เวลาเปิดปั๊มน้ำ 5 วินาที
+constexpr unsigned long FAN_RUN_TIME       = 10000UL;  // เวลาเปิดพัดลม 10 วินาที
+constexpr unsigned long READ_INTERVAL      = 2000UL;   // อ่านค่า Sensor ทุก 2 วินาที
+constexpr unsigned long IDLE_READ_INTERVAL = 5000UL;   // อ่านค่า Sensor ทุก 5 วินาทีในโหมด IDLE
+constexpr unsigned long COOLDOWN_TIME      = 30000UL;  // พักระบบ 30 วินาทีหลังทำงาน
+constexpr unsigned long LCD_UPDATE_INTERVAL = 500UL;   // อัพเดท LCD ทุก 500 มิลลิวินาที
 
 // ค่าสำหรับการอ่าน Sensor
 constexpr int SENSOR_SAMPLES     = 10;   // จำนวนครั้งในการอ่านค่าเฉลี่ย
@@ -74,6 +86,7 @@ SystemState previousState = SystemState::IDLE;
 unsigned long lastReadTime = 0;
 unsigned long stateStartTime = 0;
 unsigned long lastStateChangeTime = 0;
+unsigned long lastLcdUpdateTime = 0;
 
 int currentMoisture = 512;  // ค่าเริ่มต้นกลางๆ
 int previousMoisture = 512;
@@ -81,26 +94,114 @@ int previousMoisture = 512;
 bool sensorError = false;
 
 // =============================================
+// LCD Display Object (ออบเจ็กต์จอ LCD)
+// =============================================
+
+LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, LCD_COLUMNS, LCD_ROWS);
+
+// =============================================
+// Custom Characters สำหรับ LCD (ตัวอักษรพิเศษ)
+// =============================================
+
+// ไอคอนหยดน้ำ (Water Drop Icon)
+const uint8_t CHAR_WATER_DROP[8] PROGMEM = {
+  0b00100,
+  0b00100,
+  0b01110,
+  0b01110,
+  0b11111,
+  0b11111,
+  0b11111,
+  0b01110
+};
+
+// ไอคอนพัดลม (Fan Icon)
+const uint8_t CHAR_FAN[8] PROGMEM = {
+  0b00000,
+  0b11011,
+  0b11011,
+  0b00100,
+  0b11011,
+  0b11011,
+  0b00000,
+  0b00000
+};
+
+// ไอคอนต้นไม้ (Plant Icon)
+const uint8_t CHAR_PLANT[8] PROGMEM = {
+  0b00100,
+  0b01110,
+  0b00100,
+  0b01110,
+  0b10101,
+  0b00100,
+  0b00100,
+  0b01110
+};
+
+// ไอคอนเตือน (Warning Icon)
+const uint8_t CHAR_WARNING[8] PROGMEM = {
+  0b00000,
+  0b00100,
+  0b01110,
+  0b01110,
+  0b11111,
+  0b11111,
+  0b00100,
+  0b00000
+};
+
+// ตำแหน่ง Custom Character ใน CGRAM
+constexpr uint8_t ICON_WATER_DROP = 0;
+constexpr uint8_t ICON_FAN        = 1;
+constexpr uint8_t ICON_PLANT      = 2;
+constexpr uint8_t ICON_WARNING    = 3;
+
+// =============================================
 // Forward Declarations (ประกาศฟังก์ชันล่วงหน้า)
 // =============================================
 
+// ฟังก์ชันเริ่มต้นระบบ
 void initializePins();
 void initializeRelays();
+void initializeLcd();
+void createLcdCustomChars();
+
+// ฟังก์ชันอ่านค่า Sensor
 int readSoilMoisture();
 bool validateSensorReading(int reading);
+
+// ฟังก์ชัน State Machine
 void updateSystemState(int moisture);
 void executeState();
 void transitionTo(SystemState newState);
+
+// ฟังก์ชันควบคุมอุปกรณ์
 void startPump();
 void stopPump();
 void startFan();
 void stopFan();
 void stopAllDevices();
+
+// ฟังก์ชันแสดงผล Serial
 void printSystemStatus(int moisture);
 void printStateTransition(SystemState from, SystemState to);
 const __FlashStringHelper* getStateName(SystemState state);
 const __FlashStringHelper* getMoistureStatus(int moisture);
+
+// ฟังก์ชันแสดงผล LCD
+void updateLcdDisplay();
+void lcdShowStartupScreen();
+void lcdShowSystemStatus();
+void lcdClearRow(uint8_t row);
+const char* getLcdStateName(SystemState state);
+const char* getLcdMoistureStatus(int moisture);
+int getMoisturePercent(int rawValue);
+
+// ฟังก์ชันช่วยเหลือ
 unsigned long getElapsedTime(unsigned long startTime);
+
+// ฟังก์ชันสำรอง Relay
 void activateRelay1();
 void deactivateRelay1();
 void activateRelay2();
@@ -121,24 +222,31 @@ void setup() {
 
   Serial.println(F(""));
   Serial.println(F("====================================="));
-  Serial.println(F("  Automatic Greenhouse System v2.0"));
+  Serial.println(F("  Automatic Greenhouse System v2.1"));
   Serial.println(F("  ระบบโรงเรือนอัตโนมัติ"));
+  Serial.println(F("  + LCD Display 16x2 Support"));
   Serial.println(F("====================================="));
   Serial.println(F(""));
 
   // เริ่มต้นระบบ
   initializePins();
   initializeRelays();
+  initializeLcd();
 
   // ตั้งค่าเริ่มต้น
   currentState = SystemState::IDLE;
   stateStartTime = millis();
   lastStateChangeTime = millis();
   lastReadTime = 0;  // ให้อ่านค่าทันทีในรอบแรก
+  lastLcdUpdateTime = 0;
 
   Serial.println(F("[SYSTEM] เริ่มต้นระบบสำเร็จ!"));
   Serial.println(F("[STATE] เข้าสู่โหมด IDLE"));
   Serial.println(F(""));
+
+  // แสดงหน้าจอเริ่มต้นบน LCD
+  lcdShowStartupScreen();
+  delay(2000);  // แสดงหน้าจอเริ่มต้น 2 วินาที
 }
 
 void loop() {
@@ -164,6 +272,12 @@ void loop() {
     if (!sensorError) {
       updateSystemState(currentMoisture);
     }
+  }
+
+  // อัพเดท LCD ตามช่วงเวลาที่กำหนด
+  if (currentTime - lastLcdUpdateTime >= LCD_UPDATE_INTERVAL) {
+    lastLcdUpdateTime = currentTime;
+    updateLcdDisplay();
   }
 
   // ดำเนินการตามสถานะปัจจุบัน
@@ -195,6 +309,43 @@ void initializeRelays() {
   digitalWrite(RELAY_FAN_PIN, RELAY_OFF);
 
   Serial.println(F("[INIT] ปิด Relay ทั้งหมด"));
+}
+
+void initializeLcd() {
+  // เริ่มต้น LCD
+  lcd.init();
+
+  // เปิดไฟ Backlight
+  lcd.backlight();
+
+  // สร้าง Custom Characters
+  createLcdCustomChars();
+
+  // ล้างหน้าจอ
+  lcd.clear();
+
+  Serial.println(F("[INIT] LCD 16x2 (I2C) เริ่มต้นสำเร็จ"));
+}
+
+void createLcdCustomChars() {
+  // สร้าง Custom Characters จาก PROGMEM
+  uint8_t charBuffer[8];
+
+  // โหลดและสร้างไอคอนหยดน้ำ
+  memcpy_P(charBuffer, CHAR_WATER_DROP, 8);
+  lcd.createChar(ICON_WATER_DROP, charBuffer);
+
+  // โหลดและสร้างไอคอนพัดลม
+  memcpy_P(charBuffer, CHAR_FAN, 8);
+  lcd.createChar(ICON_FAN, charBuffer);
+
+  // โหลดและสร้างไอคอนต้นไม้
+  memcpy_P(charBuffer, CHAR_PLANT, 8);
+  lcd.createChar(ICON_PLANT, charBuffer);
+
+  // โหลดและสร้างไอคอนเตือน
+  memcpy_P(charBuffer, CHAR_WARNING, 8);
+  lcd.createChar(ICON_WARNING, charBuffer);
 }
 
 // =============================================
@@ -346,6 +497,9 @@ void transitionTo(SystemState newState) {
       Serial.println(F("[STATE] เข้าสู่ช่วงพักระบบ"));
       break;
   }
+
+  // อัพเดท LCD ทันทีเมื่อเปลี่ยนสถานะ
+  updateLcdDisplay();
 }
 
 // =============================================
@@ -386,7 +540,7 @@ void stopAllDevices() {
 }
 
 // =============================================
-// ฟังก์ชันแสดงผล (Display Functions)
+// ฟังก์ชันแสดงผล Serial (Serial Display Functions)
 // =============================================
 
 void printSystemStatus(int moisture) {
@@ -395,6 +549,9 @@ void printSystemStatus(int moisture) {
   // แสดงค่าความชื้น
   Serial.print(F("Moisture: "));
   Serial.print(moisture);
+  Serial.print(F(" ("));
+  Serial.print(getMoisturePercent(moisture));
+  Serial.print(F("%)"));
   Serial.print(F(" | Status: "));
   Serial.println(getMoistureStatus(moisture));
 
@@ -448,6 +605,128 @@ const __FlashStringHelper* getMoistureStatus(int moisture) {
   } else {
     return F("NORMAL (ปกติ)");
   }
+}
+
+// =============================================
+// ฟังก์ชันแสดงผล LCD (LCD Display Functions)
+// =============================================
+
+void lcdShowStartupScreen() {
+  lcd.clear();
+
+  // แถวที่ 1: ชื่อระบบ
+  lcd.setCursor(0, 0);
+  lcd.write(ICON_PLANT);  // ไอคอนต้นไม้
+  lcd.print(F(" Greenhouse"));
+
+  // แถวที่ 2: เวอร์ชัน
+  lcd.setCursor(0, 1);
+  lcd.print(F("System v2.1"));
+}
+
+void updateLcdDisplay() {
+  // แสดงสถานะระบบปัจจุบันบน LCD
+  lcdShowSystemStatus();
+}
+
+void lcdShowSystemStatus() {
+  // แถวที่ 1: ค่าความชื้นและสถานะ
+  // รูปแบบ: "M:xxx% STATUS"
+  lcd.setCursor(0, 0);
+
+  // แสดงไอคอนตามสถานะ
+  if (sensorError) {
+    lcd.write(ICON_WARNING);
+  } else if (currentState == SystemState::WATERING) {
+    lcd.write(ICON_WATER_DROP);
+  } else if (currentState == SystemState::VENTILATING) {
+    lcd.write(ICON_FAN);
+  } else {
+    lcd.write(ICON_PLANT);
+  }
+
+  // แสดงค่าความชื้นเป็นเปอร์เซ็นต์
+  lcd.print(F("M:"));
+  int moisturePercent = getMoisturePercent(currentMoisture);
+
+  // จัดรูปแบบตัวเลข (เติมช่องว่างด้านหน้า)
+  if (moisturePercent < 10) {
+    lcd.print(F("  "));
+  } else if (moisturePercent < 100) {
+    lcd.print(F(" "));
+  }
+  lcd.print(moisturePercent);
+  lcd.print(F("% "));
+
+  // แสดงสถานะความชื้นแบบย่อ
+  lcd.print(getLcdMoistureStatus(currentMoisture));
+
+  // เติมช่องว่างที่เหลือ
+  lcd.print(F("   "));
+
+  // แถวที่ 2: สถานะระบบและเวลา
+  // รูปแบบ: "STATE    xxxs"
+  lcd.setCursor(0, 1);
+
+  // แสดงสถานะระบบ
+  lcd.print(getLcdStateName(currentState));
+
+  // แสดงเวลาที่ผ่านไปในสถานะปัจจุบัน
+  unsigned long elapsed = getElapsedTime(stateStartTime);
+  unsigned long elapsedSec = elapsed / 1000;
+
+  // คำนวณตำแหน่งสำหรับแสดงเวลา (ชิดขวา)
+  lcd.setCursor(11, 1);
+
+  // จัดรูปแบบตัวเลข (เติมช่องว่างด้านหน้า)
+  if (elapsedSec < 10) {
+    lcd.print(F("   "));
+  } else if (elapsedSec < 100) {
+    lcd.print(F("  "));
+  } else if (elapsedSec < 1000) {
+    lcd.print(F(" "));
+  }
+  lcd.print(elapsedSec);
+  lcd.print(F("s"));
+}
+
+void lcdClearRow(uint8_t row) {
+  lcd.setCursor(0, row);
+  lcd.print(F("                "));  // 16 ช่องว่าง
+}
+
+const char* getLcdStateName(SystemState state) {
+  // ชื่อสถานะแบบย่อสำหรับ LCD (จำกัด 10 ตัวอักษร)
+  switch (state) {
+    case SystemState::IDLE:        return "IDLE      ";
+    case SystemState::WATERING:    return "WATERING  ";
+    case SystemState::VENTILATING: return "VENT      ";
+    case SystemState::COOLDOWN:    return "COOLDOWN  ";
+    default:                       return "UNKNOWN   ";
+  }
+}
+
+const char* getLcdMoistureStatus(int moisture) {
+  // สถานะความชื้นแบบย่อสำหรับ LCD
+  if (moisture >= MOISTURE_DRY_THRESHOLD) {
+    return "DRY";
+  } else if (moisture <= MOISTURE_WET_THRESHOLD) {
+    return "WET";
+  } else {
+    return "OK ";
+  }
+}
+
+int getMoisturePercent(int rawValue) {
+  // แปลงค่า Analog (0-1023) เป็นเปอร์เซ็นต์ความชื้น (0-100%)
+  // หมายเหตุ: ค่า Analog ต่ำ = ความชื้นสูง (กลับค่า)
+  int percent = map(rawValue, SENSOR_MAX_VALID, SENSOR_MIN_VALID, 0, 100);
+
+  // จำกัดค่าให้อยู่ในช่วง 0-100
+  if (percent < 0) percent = 0;
+  if (percent > 100) percent = 100;
+
+  return percent;
 }
 
 // =============================================
