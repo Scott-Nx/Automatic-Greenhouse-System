@@ -49,6 +49,16 @@
 - **Water Pump**: Connect to Relay channel 3 (IN3)
 - **Fan**: Connect to Relay channel 4 (IN4)
 
+**Relay Output Connections (Screw Terminals):**
+
+| Terminal | Description     | Connection                         |
+| -------- | --------------- | ---------------------------------- |
+| **COM**  | Common          | Connect to **Power Supply (+)**    |
+| **NO**   | Normally Open   | Connect to **Device Positive (+)** |
+| **NC**   | Normally Closed | **Do Not Connect** (Leave empty)   |
+
+_The Device Negative (-) connects directly to the Power Supply (-)._
+
 > [!WARNING]
 > Be careful about polarity, and use a separate power supply for the water pump and fan.
 
