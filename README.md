@@ -44,7 +44,20 @@
 | IN3               | Arduino D4      | Water Pump                                     |
 | IN4               | Arduino D5      | Fan                                            |
 
-### 1.3 Connect the Water Pump and Fan
+### 1.3 Connect the LCD Display 16x2 (I2C)
+
+| LCD Pin | Connect to Arduino | Description             |
+| ------- | ------------------ | ----------------------- |
+| VCC     | 5V                 | 5V Power Supply         |
+| GND     | GND                | Ground                  |
+| SDA     | A4                 | Data Line (I2C)         |
+| SCL     | A5                 | Clock Line (I2C)        |
+
+> [!TIP]
+> **Note**: The I2C address of the LCD is typically `0x27` or `0x3F` depending on the model.
+> If unsure, you can use the I2C Scanner program to check the address.
+
+### 1.4 Connect the Water Pump and Fan
 
 - **Water Pump**: Connect to Relay channel 3 (IN3)
 - **Fan**: Connect to Relay channel 4 (IN4)
