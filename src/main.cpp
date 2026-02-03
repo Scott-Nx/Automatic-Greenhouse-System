@@ -1,19 +1,16 @@
 /*
- * ระบบโรงเรือนอัตโนมัติ (Automatic Greenhouse System)
- * สำหรับบอร์ด Arduino Uno
+ * Automatic Greenhouse System - Main Program
+ * For Arduino Uno
  *
- * ระบบควบคุมความชื้นในดินอัตโนมัติ:
- * - เมื่อความชื้นปกติ: โหมด IDLE (พักระบบ)
- * - เมื่อความชื้นต่ำ: เปิดปั๊มน้ำเพื่อรดน้ำ
- * - เมื่อความชื้นสูง: เปิดพัดลมเพื่อดูดความชื้นออก
+ * Automatic soil moisture control system:
+ * - IDLE mode: System resting when moisture is normal
+ * - WATERING mode: Pump activated when soil is dry
+ * - VENTILATING mode: Fan activated when soil is too wet
  *
- * อุปกรณ์แสดงผล:
- * - LCD Display 16x2 (I2C) สำหรับแสดงสถานะระบบ
- *
- * คุณสมบัติด้านความปลอดภัย:
- * - Watchdog Timer เพื่อป้องกันการค้างจาก EMI
- * - การตรวจสอบ Sensor อย่างเข้มงวด
- * - ระบบ Fail-safe สำหรับอุปกรณ์
+ * Safety Features:
+ * - Watchdog Timer to prevent MCU hang from EMI
+ * - Strict sensor validation with median filtering
+ * - Fail-safe relay shutdown on errors
  *
  * Version: 2.2 (with Watchdog and EMI Protection)
  *
@@ -42,13 +39,13 @@
 // =============================================
 
 void setup() {
-  // Disable Watchdog first (may be stuck from previous cycle)
+  // Disable Watchdog first (may be stuck from previous reset cycle)
   watchdogDisable();
 
   // Initialize Serial Monitor for debugging
   Serial.begin(9600);
 
-  // Wait for Serial to be ready (for some boards)
+  // Wait for Serial to be ready (required for some boards)
   unsigned long serialWaitStart = millis();
   while (!Serial && (millis() - serialWaitStart) < 3000) {
     ; // Wait up to 3 seconds
@@ -62,17 +59,17 @@ void setup() {
   Serial.println(F("========================================"));
   Serial.println(F(""));
 
-  // Check reset reason
+  // Check and display reset reason (helps diagnose WDT resets)
   checkResetReason();
 
-  // Initialize all modules
+  // Initialize all hardware modules
   Serial.println(F("[INIT] Initializing system..."));
 
-  relayInit();                        // Initialize relay pins
-  sensorInit(Pins::SOIL_MOISTURE);    // Initialize sensor
-  initializeLcd();                    // Initialize LCD display
+  relayInit();                        // Initialize relay pins to OFF state
+  sensorInit(Pins::SOIL_MOISTURE);    // Initialize soil moisture sensor
+  initializeLcd();                    // Initialize I2C LCD display
 
-  // Initialize system data
+  // Initialize system state data
   systemData.reset();
   systemData.stateStartTime = millis();
   systemData.lastStateChangeTime = millis();
@@ -83,9 +80,10 @@ void setup() {
 
   // Show startup screen on LCD
   lcdShowStartupScreen();
-  safeDelay(2000);  // Show startup screen for 2 seconds
+  safeDelay(2000);  // Display startup screen for 2 seconds (uses safe delay)
 
-  // Start Watchdog Timer after setup is complete
+  // Enable Watchdog Timer after all initialization is complete
+  // This prevents WDT reset during slow initialization
   watchdogSetup();
 }
 
@@ -94,75 +92,78 @@ void setup() {
 // =============================================
 
 void loop() {
-  // Reset Watchdog Timer every loop iteration
+  // Reset Watchdog Timer at start of every loop iteration
+  // This tells the WDT that the system is running normally
   watchdogReset();
 
   unsigned long currentTime = millis();
 
-  // Determine read interval based on current state
+  // Determine sensor read interval based on current state
+  // Read more frequently during active states for better responsiveness
   unsigned long readInterval = (systemData.currentState == SystemState::IDLE)
                                ? Config::IDLE_READ_INTERVAL
                                : Config::READ_INTERVAL;
 
-  // Read sensor at specified intervals
+  // Read sensor at configured intervals
   if ((currentTime - systemData.lastReadTime) >= readInterval) {
     systemData.lastReadTime = currentTime;
 
-    // Reset watchdog before sensor reading (may take time)
+    // Reset watchdog before sensor reading (median filter takes time)
     watchdogReset();
 
-    // Save previous moisture value
+    // Store previous moisture value for EMI spike detection
     systemData.previousMoisture = systemData.currentMoisture;
 
-    // Read moisture from sensor
+    // Read moisture value from sensor (uses median filter)
     int newMoisture = readSoilMoisture();
 
-    // Check for EMI spike
+    // Check if new reading is an EMI spike (abnormal sudden change)
     if (!isSensorError() && checkEmiSpike(newMoisture, systemData.previousMoisture)) {
       Serial.println(F("[EMI] Abnormal value detected (possible EMI) - using previous value"));
       incrementConsecutiveErrors();
     } else {
+      // Valid reading - update current moisture
       systemData.currentMoisture = newMoisture;
       if (!isSensorError()) {
-        resetConsecutiveErrors();  // Reset error count on success
+        resetConsecutiveErrors();  // Clear error count on valid reading
       }
     }
 
-    // Update systemData error tracking
+    // Sync error tracking with sensor module
     systemData.sensorError = isSensorError();
     systemData.consecutiveErrors = getConsecutiveErrors();
 
-    // Reset watchdog after sensor reading
+    // Reset watchdog after sensor processing
     watchdogReset();
 
-    // Print system status to Serial
+    // Output current status to Serial Monitor
     printSystemStatus(systemData.currentMoisture);
 
-    // Check for too many consecutive errors
+    // Check for excessive consecutive errors
     if (systemData.consecutiveErrors >= WatchdogConfig::MAX_CONSECUTIVE_ERRORS) {
-      Serial.println(F("[ERROR] Too many consecutive errors!"));
-      handleError();
+      Serial.println(F("[ERROR] Too many consecutive sensor errors!"));
+      handleError();  // Enter safe ERROR state
     } else if (!systemData.sensorError && systemData.currentState != SystemState::ERROR) {
-      // Update system state (if no errors)
+      // Normal operation - update system state based on moisture level
       updateSystemState(systemData.currentMoisture);
     }
   }
 
-  // Reset watchdog
+  // Reset watchdog between operations
   watchdogReset();
 
-  // Update LCD at specified intervals
+  // Update LCD display at configured intervals
   if ((currentTime - systemData.lastLcdUpdateTime) >= Config::LCD_UPDATE_INTERVAL) {
     systemData.lastLcdUpdateTime = currentTime;
     updateLcdDisplay();
   }
 
-  // Reset watchdog
+  // Reset watchdog before state execution
   watchdogReset();
 
-  // Execute actions for current state
+  // Execute actions for current system state (pump/fan control)
   executeState();
 
-  // Reset watchdog at end of loop
+  // Final watchdog reset at end of loop
   watchdogReset();
 }

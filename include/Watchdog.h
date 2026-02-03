@@ -1,8 +1,9 @@
 /*
- * Watchdog.h
+ * Watchdog.h - Watchdog Timer Functions
  *
- * Watchdog Timer functions for EMI protection
- * Prevents system hang from electromagnetic interference
+ * Provides Watchdog Timer (WDT) functionality for EMI protection.
+ * The WDT automatically resets the MCU if the program hangs due to
+ * electromagnetic interference or other issues.
  *
  * Part of Automatic Greenhouse System v2.2
  */
@@ -19,11 +20,11 @@
 // =============================================
 
 enum class ResetReason : uint8_t {
-  POWER_ON,
-  EXTERNAL,
-  BROWN_OUT,
-  WATCHDOG,
-  UNKNOWN
+  POWER_ON,    // Normal power-on reset
+  EXTERNAL,    // External reset (reset button pressed)
+  BROWN_OUT,   // Brown-out reset (voltage dropped too low)
+  WATCHDOG,    // Watchdog timer reset (program hung)
+  UNKNOWN      // Unknown reset reason
 };
 
 // =============================================
@@ -32,42 +33,73 @@ enum class ResetReason : uint8_t {
 
 /**
  * Initialize the Watchdog Timer
- * Call this at the end of setup() after all initialization is complete
+ *
+ * Configures the WDT with the timeout specified in Config.h
+ * (WatchdogConfig::TIMEOUT). Call this at the END of setup()
+ * after all other initialization is complete.
+ *
+ * Default timeout: 2 seconds (WDTO_2S)
  */
 void watchdogSetup();
 
 /**
  * Reset the Watchdog Timer
- * Must be called regularly in loop() to prevent system reset
+ *
+ * Must be called regularly in loop() to prevent system reset.
+ * If this function is not called within the timeout period,
+ * the MCU will automatically reset.
+ *
+ * Call this:
+ * - At the start of loop()
+ * - Before and after long operations
+ * - At the end of loop()
  */
 void watchdogReset();
 
 /**
  * Disable the Watchdog Timer
- * Call at the beginning of setup() to prevent reset loops
+ *
+ * Call this at the BEGINNING of setup() to prevent reset loops
+ * if the WDT was active from a previous reset cycle.
  */
 void watchdogDisable();
 
 /**
  * Check and report the reason for the last reset
+ *
+ * Reads the MCU Status Register (MCUSR) to determine what
+ * caused the last reset. Useful for diagnosing WDT resets.
+ *
  * @return ResetReason enum indicating the cause of reset
  */
 ResetReason checkResetReason();
 
 /**
- * Get the WDT reset count (number of watchdog resets since power-on)
- * @return Number of watchdog resets
+ * Get the WDT reset count
+ *
+ * Returns the number of watchdog resets since power-on.
+ * This counter is cleared on power-on reset but survives
+ * software resets.
+ *
+ * @return Number of watchdog resets (0-255)
  */
 uint8_t getWdtResetCount();
 
 /**
- * Reset the WDT reset counter
+ * Clear the WDT reset counter
+ *
+ * Resets the watchdog reset counter to zero.
+ * Call this after recovering from multiple WDT resets.
  */
 void clearWdtResetCount();
 
 /**
  * Safe delay that resets watchdog during wait
- * Use this instead of delay() for long waits
+ *
+ * Use this instead of delay() for waits longer than the
+ * WDT timeout period. This function resets the watchdog
+ * every 10ms during the delay.
+ *
  * @param ms Delay time in milliseconds
  */
 void safeDelay(unsigned long ms);
