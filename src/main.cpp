@@ -9,6 +9,7 @@
  */
 
 #include <Arduino.h>
+#include <avr/wdt.h>
 
 // =============================================
 // การกำหนดขา (Pin Definitions)
@@ -126,6 +127,9 @@ void setup() {
   Serial.println(F("====================================="));
   Serial.println(F(""));
 
+  // เปิดใช้งานตัวจับเวลาเฝ้าระวัง (8 วินาที)
+  wdt_enable(WDTO_8S);
+
   // เริ่มต้นระบบ
   initializePins();
   initializeRelays();
@@ -142,6 +146,8 @@ void setup() {
 }
 
 void loop() {
+  wdt_reset(); // รีเซ็ตตัวจับเวลาเฝ้าระวัง
+
   unsigned long currentTime = millis();
 
   // กำหนดช่วงเวลาอ่านค่าตามสถานะ
