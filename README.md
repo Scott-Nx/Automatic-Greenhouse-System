@@ -23,7 +23,7 @@
 
 ---
 
-## 🔌 Step 1: Wiring the Circuit
+## Step 1: Wiring the Circuit
 
 ### 1.1 Connect the Soil Moisture Sensor
 
@@ -79,7 +79,7 @@ _The Device Negative (-) connects directly to the Power Supply (-)._
 
 ---
 
-## 💻 Step 2: Install Arduino IDE
+## Step 2: Install Arduino IDE
 
 ### For Windows
 
