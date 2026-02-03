@@ -221,11 +221,9 @@ void setup() {
   }
 
   Serial.println(F(""));
-  Serial.println(F("====================================="));
-  Serial.println(F("  Automatic Greenhouse System v2.1"));
-  Serial.println(F("  ระบบโรงเรือนอัตโนมัติ"));
-  Serial.println(F("  + LCD Display 16x2 Support"));
-  Serial.println(F("====================================="));
+  Serial.println(F("================================"));
+  Serial.println(F("Automatic Greenhouse System v2.1"));
+  Serial.println(F("================================"));
   Serial.println(F(""));
 
   // เริ่มต้นระบบ
