@@ -2,6 +2,14 @@
 
 🌐 **[ภาษาไทย (Thai Version)](README.th.md)**
 
+## Features
+
+- **Automatic soil moisture control** - Waters when soil is dry, ventilates when too wet
+- **LCD Display** - Real-time status monitoring on 16x2 I2C LCD
+- **Watchdog Timer (WDT)** - Protection against system hang from EMI interference
+- **EMI Protection** - Median filter and spike detection for reliable sensor readings
+- **Safe Mode** - Automatic shutdown on critical errors
+
 ## Prerequisites
 
 ### Hardware Components
@@ -18,7 +26,7 @@
 
 ### Software Requirements
 
-- **Arduino IDE** (for writing and uploading code)
+- **Arduino IDE 2.x** (for writing and uploading code)
 - **LiquidCrystal I2C Library** (library for controlling LCD)
 
 ---
@@ -139,38 +147,88 @@ _The Device Negative (-) connects directly to the Power Supply (-)._
 3. Upload the code to Arduino (with LCD connected)
 4. Open **Serial Monitor** (`Ctrl + Shift + M`)
 5. View the I2C address displayed (e.g., `0x27` or `0x3F`)
-6. Use this address in your code (if not `0x27`, modify line 33 in main.cpp)
+6. Use this address in your code (if not `0x27`, modify in `include/Config.h`)
 
 ```cpp
-constexpr uint8_t LCD_I2C_ADDRESS = 0x27;  // Change to 0x3F if using this address
+namespace LcdConfig {
+  constexpr uint8_t I2C_ADDRESS = 0x27;  // Change to 0x3F if needed
+  ...
+}
 ```
 
 ---
 
-## Step 4: Open the Code in Arduino IDE
+## Step 4: Set Up the Project in Arduino IDE
 
-### 4.1 Open Arduino IDE
+### Project File Structure
 
-Double-click the Arduino IDE icon on the desktop or in the program menu.
+This project uses multiple files for better organization:
 
-### 4.2 Create a New File
+```
+GreenhouseSystem/
+├── GreenhouseSystem.ino    (main sketch - renamed from main.cpp)
+├── Config.h                (configuration constants)
+├── Watchdog.h              (watchdog timer declarations)
+├── Watchdog.cpp            (watchdog timer implementation)
+├── Sensor.h                (sensor declarations)
+├── Sensor.cpp              (sensor implementation)
+├── Relay.h                 (relay control declarations)
+├── Relay.cpp               (relay control implementation)
+├── StateMachine.h          (state machine declarations)
+├── StateMachine.cpp        (state machine implementation)
+├── Display.h               (display declarations)
+└── Display.cpp             (display implementation)
+```
 
-1. Click **File** > **New Sketch** (or press `Ctrl + N`)
-2. A new window will open
+### 4.1 Create Project Folder
 
-### 4.3 Copy the Code
+1. Create a new folder named **"GreenhouseSystem"** on your computer
+2. This folder name must match the main sketch file name
 
-1. Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob/main/main.cpp) file in this project
-2. Select all (press `Ctrl + A`)
-3. Copy (press `Ctrl + C`)
-4. Go back to Arduino IDE
-5. Delete all existing code, then paste (press `Ctrl + V`)
+### 4.2 Download and Copy Files
 
-### 4.4 Save the File
+1. Download all files from this repository
+2. Copy the following files to your **"GreenhouseSystem"** folder:
 
-1. Click **File** > **Save** (or press `Ctrl + S`)
-2. Name it **"GreenhouseSystem"**
-3. Choose the save location and click **Save**
+**From `src/` folder:**
+
+- `main.cpp` → rename to **`GreenhouseSystem.ino`**
+- `Watchdog.cpp`
+- `Sensor.cpp`
+- `Relay.cpp`
+- `StateMachine.cpp`
+- `Display.cpp`
+
+**From `include/` folder:**
+
+- `Config.h`
+- `Watchdog.h`
+- `Sensor.h`
+- `Relay.h`
+- `StateMachine.h`
+- `Display.h`
+
+### 4.3 Open Project in Arduino IDE
+
+1. Open **Arduino IDE**
+2. Click **File** > **Open**
+3. Navigate to the **"GreenhouseSystem"** folder
+4. Select **"GreenhouseSystem.ino"** and click **Open**
+5. You will see all files appear as tabs in the IDE
+
+> [!IMPORTANT]
+> **All files must be in the same folder as the .ino file.**
+> Arduino IDE automatically includes all .h, .cpp, and .ino files in the sketch folder.
+
+### 4.4 Alternative: Single File Setup (Simpler)
+
+If you prefer a simpler setup with a single file:
+
+1. Download the **combined single-file version** from the [Releases](https://github.com/Scott-Nx/Automatic-Greenhouse-System/releases) page
+2. Open Arduino IDE
+3. Click **File** > **New Sketch**
+4. Delete the default code and paste the downloaded code
+5. Save as **"GreenhouseSystem"**
 
 ---
 
@@ -223,7 +281,7 @@ After uploading the code, the LCD will display:
 
 ```
 🌱 Greenhouse
-System v2.1
+System v2.2 WDT
 ```
 
 **Status Screen:**
@@ -240,7 +298,7 @@ IDLE       123s
   - `M:XX%` = Moisture level as percentage
   - Status (`OK`=Normal, `DRY`=Dry, `WET`=Too Wet)
 - **Row 2**:
-  - System state (`IDLE`, `WATERING`, `VENT`, `COOLDOWN`)
+  - System state (`IDLE`, `WATERING`, `VENT`, `COOLDOWN`, `ERROR`)
   - Elapsed time in current state (seconds)
 
 ### 7.2 Open Serial Monitor
@@ -254,17 +312,27 @@ In the bottom right corner of the Serial Monitor, select **"9600 baud"**
 
 ### 7.4 Read the Values
 
-You will see messages displaying moisture values and system status, such as:
+You will see messages displaying moisture values and system status:
 
 ```
-=====================================
-ระบบโรงเรือนอัตโนมัติ เริ่มทำงาน
-Automatic Greenhouse System Started
-=====================================
-เริ่มต้นระบบสำเร็จ!
+========================================
+Automatic Greenhouse System v2.2
+With Watchdog & EMI Protection
+========================================
 
-ค่าความชื้น (Moisture): 450 | สถานะ: ปกติ (NORMAL)
-  ปั๊มน้ำ: ปิด | พัดลม: ปิด
+[BOOT] Reset reason: POWER-ON RESET
+[RELAY] Initialized - All relays OFF
+[SENSOR] Initialized
+[LCD] Initialized (16x2 I2C)
+[INIT] System initialization complete!
+[STATE] Entering IDLE mode
+[WDT] Watchdog Timer initialized (2s timeout)
+
+-------------------------------------
+Moisture: 450 (56%) | Status: NORMAL (OK)
+System State: IDLE (5s)
+Pump: OFF | Fan: OFF
+-------------------------------------
 ```
 
 ---
@@ -273,13 +341,39 @@ Automatic Greenhouse System Started
 
 ### Configurable Values
 
-Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob/main/main.cpp) file and find the following lines:
+Open **`Config.h`** and find the following sections:
+
+**Moisture Thresholds:**
 
 ```cpp
-#define MOISTURE_DRY_THRESHOLD    700   // Dry soil threshold
-#define MOISTURE_WET_THRESHOLD    300   // Wet soil threshold
-#define PUMP_RUN_TIME             5000  // Water pump runtime (milliseconds)
-#define FAN_RUN_TIME              10000 // Fan runtime (milliseconds)
+namespace Config {
+  constexpr int MOISTURE_DRY_THRESHOLD = 700;   // Dry soil threshold
+  constexpr int MOISTURE_WET_THRESHOLD = 300;   // Wet soil threshold
+  constexpr int HYSTERESIS = 50;                // Prevents oscillation
+  ...
+}
+```
+
+**Timing Configuration:**
+
+```cpp
+namespace Config {
+  ...
+  constexpr unsigned long PUMP_RUN_TIME       = 5000UL;   // 5 seconds
+  constexpr unsigned long FAN_RUN_TIME        = 10000UL;  // 10 seconds
+  constexpr unsigned long COOLDOWN_TIME       = 30000UL;  // 30 seconds
+  ...
+}
+```
+
+**Watchdog Configuration:**
+
+```cpp
+namespace WatchdogConfig {
+  constexpr uint8_t TIMEOUT = WDTO_2S;  // 2 second timeout
+  // Options: WDTO_1S, WDTO_2S, WDTO_4S, WDTO_8S
+  ...
+}
 ```
 
 ### How to Adjust Values
@@ -290,6 +384,7 @@ Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob
 | `MOISTURE_WET_THRESHOLD` | Value considered as too wet soil | Lower value = soil must be wetter to trigger fan      |
 | `PUMP_RUN_TIME`          | Water pump runtime               | 5000 = 5 seconds                                      |
 | `FAN_RUN_TIME`           | Fan runtime                      | 10000 = 10 seconds                                    |
+| `COOLDOWN_TIME`          | Rest period after operation      | 30000 = 30 seconds                                    |
 
 ### How to Find Optimal Values
 
@@ -297,6 +392,28 @@ Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob
 2. Test by inserting the Sensor in dry soil, note the value
 3. Test by inserting the Sensor in wet soil, note the value
 4. Adjust the `THRESHOLD` values as needed
+
+---
+
+## Watchdog Timer & EMI Protection
+
+### What is Watchdog Timer?
+
+The Watchdog Timer (WDT) is a safety feature that automatically resets the Arduino if the program hangs. This is especially useful in greenhouse environments where electromagnetic interference (EMI) from pumps and fans can cause the microcontroller to freeze.
+
+### How It Works
+
+1. The WDT is configured with a 2-second timeout
+2. The program must "pet" (reset) the watchdog regularly
+3. If the program hangs and fails to pet the watchdog for 2 seconds, the Arduino automatically resets
+4. After reset, the system detects it was a watchdog reset and can take appropriate action
+
+### EMI Protection Features
+
+- **Median Filter**: Takes 10 sensor readings and uses the median value to filter out noise spikes
+- **Spike Detection**: Detects abnormally large changes in sensor values that may be caused by EMI
+- **Consecutive Error Tracking**: If too many errors occur in a row, the system enters safe mode
+- **Safe Mode**: Automatically shuts down all devices when critical errors are detected
 
 ---
 
@@ -320,11 +437,31 @@ Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob
 
 3. **Check I2C Address**:
    - Use I2C Scanner code to check the address (see Step 3.4)
-   - If address is not `0x27`, modify the code accordingly
+   - If address is not `0x27`, modify in `Config.h`
 
 4. **Check Library**:
    - Verify LiquidCrystal I2C Library is installed
    - Try uninstalling and reinstalling the library
+
+### Problem: Compilation Error - "Multiple definition"
+
+**Symptom**: Error message about multiple definitions of functions or variables
+
+**Solution**:
+
+1. Make sure you have **only one** `SystemData systemData;` definition (in `StateMachine.cpp`)
+2. Make sure header files use `#ifndef` / `#define` / `#endif` guards
+3. Check that `.h` files only have `extern` declarations, not definitions
+
+### Problem: Compilation Error - "File not found"
+
+**Symptom**: Error message like `'Config.h' file not found`
+
+**Solution**:
+
+1. Make sure all `.h` and `.cpp` files are in the **same folder** as the `.ino` file
+2. Make sure the folder name matches the `.ino` filename
+3. Restart Arduino IDE after adding files
 
 ### Problem: LCD Shows Garbled Text
 
@@ -336,16 +473,18 @@ Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob
 2. Check that SDA and SCL wires are connected correctly
 3. Ensure no other wires are interfering with the I2C signal
 
-### Problem: I2C Scanner Cannot Find LCD
+### Problem: System Keeps Resetting
 
-**Symptom**: I2C Scanner shows "No I2C devices found"
+**Symptom**: Serial Monitor shows "WATCHDOG RESET" repeatedly
 
 **Solution**:
 
-1. Check SDA (A4) and SCL (A5) wiring
-2. Verify LCD is receiving power (VCC, GND)
-3. Try using different jumper wires
-4. Check if the I2C module on the LCD is not damaged
+1. Check for infinite loops in your code modifications
+2. Increase the watchdog timeout in `Config.h`:
+   ```cpp
+   constexpr uint8_t TIMEOUT = WDTO_4S;  // Increase to 4 seconds
+   ```
+3. Make sure `watchdogReset()` is called regularly in the main loop
 
 ### Problem: Cannot Upload
 
@@ -387,3 +526,18 @@ Open the [main.cpp](https://github.com/Scott-Nx/Automatic-Greenhouse-System/blob
 1. Check the water pump/fan wiring to Relay
 2. Check the power supply for water pump/fan
 3. Test the water pump/fan directly with the power supply
+
+---
+
+## Version History
+
+- **v2.2** - Added Watchdog Timer, EMI protection, multi-file structure
+- **v2.1** - Added LCD display support
+- **v2.0** - State machine refactoring
+- **v1.0** - Initial release
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
